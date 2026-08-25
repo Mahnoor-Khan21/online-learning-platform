@@ -21,12 +21,20 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.set('views', path.join(__dirname, '..', 'views'));
 
+const sessionStore = process.env.MONGODB_URI
+    ? MongoStore.create({ mongoUrl: MONGODB_URI })
+    : undefined;
+
+if (!process.env.MONGODB_URI && process.env.NODE_ENV === 'production') {
+    console.warn('⚠️ SESSION store is using the default in-memory fallback because MONGODB_URI is missing. Set MONGODB_URI in Vercel for persistent sessions.');
+}
+
 // ── SESSIONS ─────────────────────────────────────────────
 app.use(session({
     secret: process.env.SESSION_SECRET || 'learnSecret123',
     resave: false,
     saveUninitialized: false,
-    store: MongoStore.create({ mongoUrl: MONGODB_URI }),
+    store: sessionStore,
     cookie: {
         maxAge: 1000 * 60 * 60 * 3,
         secure: process.env.NODE_ENV === 'production'
@@ -415,15 +423,30 @@ app.use((err, req, res, next) => {
 // ─────────────────────────────────────────────────────────
 //  START SERVER
 // ─────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 9000;
+const PORT = Number(process.env.PORT) || 9000;
+
+function startServer(port) {
+    const server = app.listen(port, () => {
+        console.log(`🚀 Server running at http://localhost:${port}`);
+    });
+
+    server.on('error', (error) => {
+        if (error.code === 'EADDRINUSE') {
+            const nextPort = port + 1;
+            console.warn(`Port ${port} is already in use. Trying ${nextPort}...`);
+            startServer(nextPort);
+            return;
+        }
+
+        throw error;
+    });
+}
 
 // Vercel imports this file as a serverless function and calls the exported
 // app directly — it should NOT call app.listen(). Only start a normal
 // listening server when running locally (e.g. `npm run dev` / `npm start`).
 if (!process.env.VERCEL) {
-    app.listen(PORT, () => {
-        console.log(`🚀 Server running at http://localhost:${PORT}`);
-    });
+    startServer(PORT);
 }
 
 module.exports = app;

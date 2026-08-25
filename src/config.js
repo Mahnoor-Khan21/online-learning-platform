@@ -4,15 +4,20 @@
 
 const mongoose = require('mongoose');
 
-// Connect to MongoDB
-// Locally this falls back to a local Mongo instance; on Vercel you MUST set
-// the MONGODB_URI environment variable to a MongoDB Atlas connection string,
-// since Vercel's serverless functions cannot reach "localhost".
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/learning-platform";
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Local development may use a local MongoDB instance, but Vercel must use an
+// environment variable. We log a clear warning instead of silently assuming
+// localhost in production.
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/learning-platform';
+
+if (isProduction && !process.env.MONGODB_URI) {
+    console.warn('⚠️ MONGODB_URI is not set. Vercel requires a hosted MongoDB connection string. Falling back to local MongoDB for development only.');
+}
 
 mongoose.connect(MONGODB_URI)
-    .then(() => console.log("✅ MongoDB Connected"))
-    .catch((err) => console.log("❌ MongoDB Connection Failed:", err.message));
+    .then(() => console.log('✅ MongoDB Connected'))
+    .catch((err) => console.log('❌ MongoDB Connection Failed:', err.message));
 
 // ─── USER MODEL ─────────────────────────────────────────
 // Each user has a name, email, password, and role
