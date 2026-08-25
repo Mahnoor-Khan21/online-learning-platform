@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Denied — LearnHub</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="denied-body">
+
+    <div class="denied-card">
+        <div class="icon">🚫</div>
+        <h1>403</h1>
+        <h2>Access Denied</h2>
+        <p>
+            Sorry, <strong><%= name %></strong> — your role
+            (<span class="badge badge-<%= role %>" style="vertical-align:middle;"><%= role %></span>)
+            does not have permission to view this page.
+        </p>
+        <div class="btns">
+            <a href="/dashboard" class="btn btn-blue">← Back to Dashboard</a>
+            <a href="/logout-confirm" class="btn btn-ghost">Logout</a>
+        </div>
+    </div>
+
+</body>
+</html>

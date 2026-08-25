@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — LearnHub</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="app-body">
+
+    <%- include('_navbar', { active: 'dashboard', name, role }) %>
+
+    <div class="page-content">
+
+        <!-- Welcome banner at top -->
+        <div class="welcome-banner">
+            <h2>Welcome back, <%= name %>! 👋</h2>
+            <p>
+                <% if (role === 'admin') { %>
+                    You have full admin access. Manage users, courses, and platform settings.
+                <% } else if (role === 'teacher') { %>
+                    Share your knowledge! Create and manage your courses below.
+                <% } else { %>
+                    Ready to keep learning? Check your enrolled courses below.
+                <% } %>
+            </p>
+        </div>
+
+
+        <!-- ADMIN DASHBOARD -->
+        <% if (role === 'admin') { %>
+
+            <!-- Stat cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">👥</div>
+                    <div>
+                        <div class="stat-value"><%= totalUsers %></div>
+                        <div class="stat-label">Total Users</div>
+                    </div>
+                </div>
+                <div class="stat-card green">
+                    <div class="stat-icon">📚</div>
+                    <div>
+                        <div class="stat-value"><%= totalCourses %></div>
+                        <div class="stat-label">Total Courses</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick links -->
+            <div class="page-header" style="margin-top: 8px;">
+                <h3 class="page-title" style="font-size:1.1rem;">Quick Actions</h3>
+            </div>
+            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:28px;">
+                <a href="/admin/users" class="btn btn-blue">👥 Manage Users</a>
+                <a href="/courses"     class="btn btn-ghost">📚 View All Courses</a>
+                <a href="/courses/add" class="btn btn-green">➕ Add Course</a>
+            </div>
+
+            <!-- Recent users table -->
+            <div class="white-card">
+                <div class="page-header" style="margin-bottom:16px;">
+                    <h3 style="font-size:1rem; font-weight:700;">Recent Users</h3>
+                    <a href="/admin/users" class="btn btn-ghost btn-sm">View All</a>
+                </div>
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Joined</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% recentUsers.forEach(u => { %>
+                            <tr>
+                                <td>
+                                    <div class="table-user">
+                                        <div class="avatar"><%= u.name.charAt(0).toUpperCase() %></div>
+                                        <%= u.name %>
+                                    </div>
+                                </td>
+                                <td><%= u.email %></td>
+                                <td><span class="badge badge-<%= u.role %>"><%= u.role %></span></td>
+                                <td><%= u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—' %></td>
+                            </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+
+        <!-- TEACHER DASHBOARD -->
+        <% } else if (role === 'teacher') { %>
+
+            <!-- Stat card -->
+            <div class="stats-grid" style="margin-bottom:24px;">
+                <div class="stat-card">
+                    <div class="stat-icon">📗</div>
+                    <div>
+                        <div class="stat-value"><%= myCourses.length %></div>
+                        <div class="stat-label">My Courses</div>
+                    </div>
+                </div>
+                <div class="stat-card orange">
+                    <div class="stat-icon">👨‍🎓</div>
+                    <div>
+                        <% let totalStudents = myCourses.reduce((sum, c) => sum + c.enrolledStudents.length, 0) %>
+                        <div class="stat-value"><%= totalStudents %></div>
+                        <div class="stat-label">Total Students</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My courses list -->
+            <div class="page-header">
+                <h3 class="page-title" style="font-size:1.15rem;">My Courses</h3>
+                <a href="/courses/add" class="btn btn-blue">➕ Add Course</a>
+            </div>
+
+            <% if (myCourses.length === 0) { %>
+                <div class="white-card" style="text-align:center; padding:48px 24px;">
+                    <div style="font-size:3rem; margin-bottom:12px;">📭</div>
+                    <p style="color: #6b7280;">You haven't created any courses yet.</p>
+                    <a href="/courses/add" class="btn btn-blue" style="margin-top:16px; display:inline-flex;">Create Your First Course</a>
+                </div>
+            <% } else { %>
+                <div class="course-grid">
+                    <% myCourses.forEach(c => { %>
+                    <div class="course-card">
+                        <div class="course-card-top"></div>
+                        <div class="course-card-body">
+                            <span class="course-tag"><%= c.category %></span>
+                            <h3><%= c.title %></h3>
+                            <p><%= c.description %></p>
+                            <div class="course-meta">
+                                <span>🕐 <%= c.duration %></span>
+                                <span>📊 <%= c.level %></span>
+                            </div>
+                            <div class="enrolled-count">👨‍🎓 <%= c.enrolledStudents.length %> students enrolled</div>
+                        </div>
+                        <div class="course-card-actions">
+                            <a href="/courses/<%= c._id %>" class="btn btn-ghost btn-sm">View Details</a>
+                        </div>
+                    </div>
+                    <% }) %>
+                </div>
+            <% } %>
+
+
+        <!-- STUDENT DASHBOARD -->
+        <% } else { %>
+
+            <!-- Stat card -->
+            <div class="stats-grid" style="margin-bottom:24px;">
+                <div class="stat-card">
+                    <div class="stat-icon">🎓</div>
+                    <div>
+                        <div class="stat-value"><%= enrolledCourses.length %></div>
+                        <div class="stat-label">Enrolled Courses</div>
+                    </div>
+                </div>
+                <div class="stat-card green">
+                    <div class="stat-icon">📚</div>
+                    <div>
+                        <div class="stat-value"><%= totalCourses %></div>
+                        <div class="stat-label">Available Courses</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enrolled courses -->
+            <div class="page-header">
+                <h3 class="page-title" style="font-size:1.15rem;">My Enrolled Courses</h3>
+                <a href="/courses" class="btn btn-blue">Browse All Courses</a>
+            </div>
+
+            <% if (enrolledCourses.length === 0) { %>
+                <div class="white-card" style="text-align:center; padding:48px 24px;">
+                    <div style="font-size:3rem; margin-bottom:12px;">📖</div>
+                    <p style="color: #6b7280;">You haven't enrolled in any courses yet.</p>
+                    <a href="/courses" class="btn btn-blue" style="margin-top:16px; display:inline-flex;">Browse Courses</a>
+                </div>
+            <% } else { %>
+                <div class="course-grid">
+                    <% enrolledCourses.forEach(c => { %>
+                    <div class="course-card">
+                        <div class="course-card-top"></div>
+                        <div class="course-card-body">
+                            <span class="course-tag"><%= c.category %></span>
+                            <h3><%= c.title %></h3>
+                            <p><%= c.description %></p>
+                            <div class="course-meta">
+                                <span>👩‍🏫 <%= c.teacherName %></span>
+                                <span>🕐 <%= c.duration %></span>
+                            </div>
+                        </div>
+                        <div class="course-card-actions">
+                            <a href="/courses/<%= c._id %>" class="btn btn-ghost btn-sm">View Course</a>
+                        </div>
+                    </div>
+                    <% }) %>
+                </div>
+            <% } %>
+
+        <% } %>
+
+    </div>
+
+</body>
+</html>

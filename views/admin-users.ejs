@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Users — LearnHub</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="app-body">
+
+    <%- include('_navbar', { active: 'users', name, role }) %>
+
+    <div class="page-content">
+
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Manage Users</h1>
+                <p class="page-subtitle"><%= users.length %> registered user<%= users.length !== 1 ? 's' : '' %></p>
+            </div>
+        </div>
+
+        <div class="white-card">
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Joined</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% users.forEach(u => { %>
+                        <tr>
+
+                            <!-- Name + avatar -->
+                            <td>
+                                <div class="table-user">
+                                    <div class="avatar"><%= u.name.charAt(0).toUpperCase() %></div>
+                                    <%= u.name %>
+                                </div>
+                            </td>
+
+                            <!-- Email -->
+                            <td style="color:#6b7280;"><%= u.email %></td>
+
+                            <!-- Current role badge + change role form -->
+                            <td>
+                                <form action="/admin/users/<%= u._id %>/role" method="POST" class="inline">
+                                    <select name="role"
+                                            onchange="this.form.submit()"
+                                            style="padding:5px 10px; border:1px solid #e5e7eb; border-radius:8px; font-size:.82rem; cursor:pointer; background:#f5f6fa;">
+                                        <!-- selected attribute pre-selects current role -->
+                                        <option value="student" <%= u.role === 'student' ? 'selected' : '' %>>Student</option>
+                                        <option value="teacher" <%= u.role === 'teacher' ? 'selected' : '' %>>Teacher</option>
+                                        <option value="admin"   <%= u.role === 'admin'   ? 'selected' : '' %>>Admin</option>
+                                    </select>
+                                </form>
+                            </td>
+
+                            <!-- Join date -->
+                            <td style="color:#6b7280; font-size:.85rem;">
+                                <%= u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—' %>
+                            </td>
+
+                            <!-- Delete button -->
+                            <td>
+                                <div class="table-actions">
+                                    <!-- Don't show delete for yourself -->
+                                    <% if (u._id.toString() !== name) { %>
+                                    <form action="/admin/users/<%= u._id %>/delete" method="POST" class="inline"
+                                          onsubmit="return confirm('Delete user <%= u.name %>? This cannot be undone.')">
+                                        <button type="submit" class="btn btn-red btn-sm">Delete</button>
+                                    </form>
+                                    <% } %>
+                                </div>
+                            </td>
+
+                        </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

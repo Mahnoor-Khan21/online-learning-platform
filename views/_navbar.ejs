@@ -1,0 +1,26 @@
+<!-- _navbar.ejs: Reusable top navbar partial -->
+
+
+<nav class="navbar">
+
+    <!-- Logo -->
+    <a href="/dashboard" class="navbar-logo">Learn<span>Hub</span></a>
+
+    <!-- Navigation links -->
+    <div class="navbar-links">
+        <a href="/dashboard" class="navbar-link <%= active === 'dashboard' ? 'active' : '' %>">Dashboard</a>
+        <a href="/courses"   class="navbar-link <%= active === 'courses'   ? 'active' : '' %>">Courses</a>
+        <a href="/profile"   class="navbar-link <%= active === 'profile'   ? 'active' : '' %>">Profile</a>
+        <% if (role === 'admin') { %>
+        <a href="/admin/users" class="navbar-link <%= active === 'users' ? 'active' : '' %>">Users</a>
+        <% } %>
+    </div>
+
+    <!-- Right side: user name + role badge + logout -->
+    <div class="navbar-right">
+        <span class="navbar-user">👋 <%= name %></span>
+        <span class="badge badge-<%= role %>"><%= role %></span>
+        <a href="/logout-confirm" class="btn-logout">Logout</a>
+    </div>
+
+</nav>

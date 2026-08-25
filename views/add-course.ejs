@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Course — LearnHub</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="app-body">
+
+    <%- include('_navbar', { active: 'courses', name, role }) %>
+
+    <div class="page-content">
+
+        <a href="/courses" style="display:inline-flex; align-items:center; gap:6px; color:#6b7280; text-decoration:none; margin-bottom:20px; font-size:.9rem;">
+            ← Back to Courses
+        </a>
+
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Add New Course</h1>
+                <p class="page-subtitle">Fill in the details below to create your course</p>
+            </div>
+        </div>
+
+        <div class="white-card" style="max-width:700px;">
+
+            <!-- Show error if submission failed -->
+            <% if (typeof error !== 'undefined') { %>
+                <div class="error-msg" style="margin-bottom:20px;"><%= error %></div>
+            <% } %>
+
+            <!-- Course creation form — submits to POST /courses/add -->
+            <form action="/courses/add" method="POST">
+
+                <!-- Title -->
+                <div class="field">
+                    <label for="title">Course Title *</label>
+                    <input type="text" id="title" name="title"
+                           placeholder="e.g. Introduction to JavaScript"
+                           required>
+                </div>
+
+                <!-- Description -->
+                <div class="field">
+                    <label for="description">Description *</label>
+                    <textarea id="description" name="description"
+                              placeholder="What will students learn in this course? What topics are covered?"
+                              required></textarea>
+                </div>
+
+                <!-- Category + Level side by side -->
+                <div class="field-row">
+                    <div class="field">
+                        <label for="category">Category</label>
+                        <select id="category" name="category">
+                            <option value="General">General</option>
+                            <option value="Web Development">Web Development</option>
+                            <option value="Data Science">Data Science</option>
+                            <option value="Design">Design</option>
+                            <option value="Business">Business</option>
+                            <option value="Marketing">Marketing</option>
+                            <option value="Programming">Programming</option>
+                            <option value="Mathematics">Mathematics</option>
+                            <option value="Science">Science</option>
+                            <option value="Language">Language</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="level">Level</label>
+                        <select id="level" name="level">
+                            <option value="Beginner">Beginner</option>
+                            <option value="Intermediate">Intermediate</option>
+                            <option value="Advanced">Advanced</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Duration -->
+                <div class="field">
+                    <label for="duration">Duration</label>
+                    <input type="text" id="duration" name="duration"
+                           placeholder="e.g. 4 weeks, 10 hours">
+                    <span class="field-note">How long will it take to complete this course?</span>
+                </div>
+
+                <!-- Submit -->
+                <button type="submit" class="btn btn-blue" style="padding:13px 32px; font-size:1rem;">
+                    ✓ Create Course
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</body>
+</html>

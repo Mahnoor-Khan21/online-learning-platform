@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirm Logout — LearnHub</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="auth-body">
+
+    <div class="auth-card">
+        <h2>Confirm Logout</h2>
+        <p>Are you sure you want to logout?</p>
+
+        <div class="button-row">
+            <!-- YES — submits POST /logout to destroy session -->
+            <form action="/logout" method="POST">
+                <button type="submit" class="btn-primary">Yes, Logout</button>
+            </form>
+            <!-- CANCEL — go back to dashboard -->
+            <a href="/dashboard" class="btn-secondary">Cancel</a>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile — LearnHub</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="app-body">
+
+    <%- include('_navbar', { active: 'profile', name, role }) %>
+
+    <div class="page-content">
+
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">My Profile</h1>
+                <p class="page-subtitle">View and update your account information</p>
+            </div>
+        </div>
+
+        <!-- Two-column: info card (left) + edit form (right) -->
+        <div class="profile-layout">
+
+            <!-- ── LEFT: Profile info ── -->
+            <div class="profile-info-card">
+
+                <!-- Big avatar with first letter of name -->
+                <div class="profile-avatar">
+                    <%= user.name.charAt(0).toUpperCase() %>
+                </div>
+
+                <div class="profile-name"><%= user.name %></div>
+                <div class="profile-email"><%= user.email %></div>
+
+                <!-- Role badge -->
+                <span class="badge badge-<%= user.role %>" style="margin-top:4px;">
+                    <% if (user.role === 'admin')   { %> 🛡️ Admin
+                    <% } else if (user.role === 'teacher') { %> 👩‍🏫 Teacher
+                    <% } else { %> 🎓 Student <% } %>
+                </span>
+
+                <!-- Extra details -->
+                <div class="profile-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Account Status</span>
+                        <span class="badge" style="background:#d1fae5; color:#065f46;">✓ Active</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Role</span>
+                        <span class="detail-value"><%= user.role %></span>
+                    </div>
+                    <% if (user.createdAt) { %>
+                    <div class="detail-row">
+                        <span class="detail-label">Member since</span>
+                        <span class="detail-value"><%= new Date(user.createdAt).toLocaleDateString() %></span>
+                    </div>
+                    <% } %>
+                </div>
+
+            </div>
+
+            <!-- ── RIGHT: Edit form ── -->
+            <div class="white-card">
+
+                <h2 style="font-size:1rem; font-weight:700; margin-bottom:20px;">Update Profile</h2>
+
+                <!-- Show error if name is taken -->
+                <% if (typeof error !== 'undefined') { %>
+                    <div class="error-msg" style="margin-bottom:18px;"><%= error %></div>
+                <% } %>
+
+                <!-- Update name form -->
+                <form action="/profile/update" method="POST">
+                    <div class="field">
+                        <label for="name">Display Name</label>
+                        <!-- value="..." pre-fills the field with the current name -->
+                        <input type="text" id="name" name="name"
+                               value="<%= user.name %>" required>
+                    </div>
+
+                    <!-- Email is read-only (shown but not editable) -->
+                    <div class="field">
+                        <label>Email Address</label>
+                        <input type="email" value="<%= user.email %>" disabled>
+                        <span class="field-note">Email cannot be changed.</span>
+                    </div>
+
+                    <!-- Role is read-only (set by admin) -->
+                    <div class="field">
+                        <label>Role</label>
+                        <input type="text" value="<%= user.role %>" disabled>
+                        <span class="field-note">Role is managed by an administrator.</span>
+                    </div>
+
+                    <button type="submit" class="btn btn-blue">Save Changes</button>
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</body>
+</html>

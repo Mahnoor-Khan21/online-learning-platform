@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Courses — LearnHub</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="app-body">
+
+    <%- include('_navbar', { active: 'courses', name, role }) %>
+
+    <div class="page-content">
+
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">All Courses</h1>
+                <p class="page-subtitle"><%= courses.length %> course<%= courses.length !== 1 ? 's' : '' %> available</p>
+            </div>
+            <!-- Teachers and Admins see the "Add Course" button -->
+            <% if (role === 'teacher' || role === 'admin') { %>
+                <a href="/courses/add" class="btn btn-blue">➕ Add Course</a>
+            <% } %>
+        </div>
+
+        <!-- If no courses exist yet -->
+        <% if (courses.length === 0) { %>
+            <div class="white-card" style="text-align:center; padding:64px 24px;">
+                <div style="font-size:3.5rem; margin-bottom:16px;">📭</div>
+                <h3 style="margin-bottom:8px;">No courses yet</h3>
+                <p style="color:#6b7280;">
+                    <% if (role === 'teacher' || role === 'admin') { %>
+                        Be the first to create a course!
+                    <% } else { %>
+                        Check back soon — teachers are creating courses for you.
+                    <% } %>
+                </p>
+                <% if (role === 'teacher' || role === 'admin') { %>
+                    <a href="/courses/add" class="btn btn-blue" style="margin-top:20px; display:inline-flex;">Create First Course</a>
+                <% } %>
+            </div>
+
+        <% } else { %>
+
+            <!-- Grid of course cards -->
+            <div class="course-grid">
+                <% courses.forEach(c => { %>
+
+                <div class="course-card">
+                    <div class="course-card-top"></div>
+                    <div class="course-card-body">
+
+                        <!-- Category tag -->
+                        <span class="course-tag"><%= c.category %></span>
+
+                        <!-- Course title -->
+                        <h3><%= c.title %></h3>
+
+                        <!-- Description (trimmed to 2 lines via CSS) -->
+                        <p><%= c.description %></p>
+
+                        <!-- Meta info -->
+                        <div class="course-meta">
+                            <span>👩‍🏫 <%= c.teacherName %></span>
+                            <span>🕐 <%= c.duration %></span>
+                            <span>📊 <%= c.level %></span>
+                        </div>
+
+                        <!-- Enrolled count -->
+                        <div class="enrolled-count">
+                            👨‍🎓 <%= c.enrolledStudents.length %> student<%= c.enrolledStudents.length !== 1 ? 's' : '' %> enrolled
+                        </div>
+
+                        <!-- Enrolled badge for students -->
+                        <% if (role === 'student' && c.isEnrolled) { %>
+                            <span class="badge badge-blue" style="margin-bottom:12px;">✓ Enrolled</span>
+                        <% } %>
+
+                    </div>
+
+                    <!-- View button -->
+                    <div class="course-card-actions">
+                        <a href="/courses/<%= c._id %>" class="btn btn-ghost btn-sm">View Details →</a>
+                    </div>
+                </div>
+
+                <% }) %>
+            </div>
+
+        <% } %>
+
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,884 @@
+/* ══════════════════════════════════════════════════════════
+   style.css  —  Online Learning Platform
+   
+   SECTIONS:
+   1. Reset & Variables
+   2. Auth pages (Login / Signup / Logout) — dark card
+   3. Public Landing page
+   4. App Layout — Navbar + Page content
+   5. Dashboard cards
+   6. Course cards & grid
+   7. Buttons & Badges
+   8. Forms
+   9. Tables (Admin)
+   10. Profile
+   11. Access Denied
+   12. Responsive (mobile)
+══════════════════════════════════════════════════════════ */
+
+
+/* ── 1. RESET & VARIABLES ────────────────────────────── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+    --blue:    #5b62ff;      /* primary blue */
+    --blue2:   #4048f0;      /* darker blue */
+    --dark:    #12141f;      /* page background (auth) */
+    --card:    #1e2140;      /* dark card */
+    --card2:   #252847;      /* slightly lighter card */
+    --white:   #ffffff;
+    --grey-bg: #f5f6fa;      /* app page background */
+    --text:    #1e2447;      /* dark text */
+    --muted:   #6b7280;      /* grey text */
+    --border:  #e5e7eb;      /* light border */
+    --green:   #10b981;
+    --orange:  #f97316;
+    --red:     #ef4444;
+    --radius:  16px;
+    --shadow:  0 4px 20px rgba(0,0,0,.08);
+}
+
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: var(--text);
+}
+
+
+/* ══════════════════════════════════════════════════════
+   2. AUTH PAGES  (Login, Signup, Logout)
+   Dark background + centered card
+══════════════════════════════════════════════════════ */
+
+/* Only auth pages use this body style */
+.auth-body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #1a1c2e 0%, #12141f 60%, #1a1c2e 100%);
+}
+
+/* Dark centered card */
+.auth-card {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 40px 36px;
+    width: min(420px, calc(100% - 32px));
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+
+/* Card title */
+.auth-card h2 {
+    color: var(--white);
+    font-size: 2rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+/* Card paragraph */
+.auth-card p {
+    color: rgba(255,255,255,.5);
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: .95rem;
+}
+
+/* Form field group */
+.form-group { margin-bottom: 18px; }
+
+.form-group label {
+    display: block;
+    color: rgba(255,255,255,.8);
+    font-size: .9rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+/* Input fields on auth pages */
+.auth-input {
+    width: 100%;
+    padding: 14px 18px;
+    background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 50px;
+    color: var(--white);
+    font-size: 1rem;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+}
+
+.auth-input::placeholder { color: rgba(255,255,255,.3); }
+
+.auth-input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(91,98,255,.2);
+}
+
+/* Dropdown on auth pages (role select) */
+.auth-select {
+    width: 100%;
+    padding: 14px 18px;
+    background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 50px;
+    color: var(--white);
+    font-size: 1rem;
+    outline: none;
+    cursor: pointer;
+    transition: border-color .2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235b62ff' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 18px center;
+    padding-right: 44px;
+}
+
+.auth-select:focus { border-color: var(--blue); }
+.auth-select option { background: #252847; color: var(--white); }
+
+/* Blue primary button */
+.btn-primary {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--blue) 0%, var(--blue2) 100%);
+    color: var(--white);
+    font-size: 1rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    margin-top: 8px;
+    transition: opacity .2s, transform .2s;
+}
+
+.btn-primary:hover { opacity: .9; transform: translateY(-1px); }
+
+/* Grey secondary button */
+.btn-secondary {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    background: rgba(255,255,255,.1);
+    color: rgba(255,255,255,.85);
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    margin-top: 8px;
+    transition: background .2s;
+}
+
+.btn-secondary:hover { background: rgba(255,255,255,.18); }
+
+/* Two buttons side by side */
+.button-row { display: flex; gap: 12px; margin-top: 8px; }
+.button-row form, .button-row a { flex: 1; }
+
+/* Error message */
+.error-msg {
+    background: rgba(239,68,68,.15);
+    border: 1px solid rgba(239,68,68,.3);
+    color: #fca5a5;
+    border-radius: 12px;
+    padding: 12px 16px;
+    text-align: center;
+    font-size: .88rem;
+    margin-bottom: 18px;
+}
+
+/* Bottom link ("Don't have an account?") */
+.bottom-link {
+    text-align: center;
+    margin-top: 22px;
+    color: rgba(255,255,255,.45);
+    font-size: .9rem;
+}
+
+.bottom-link a { color: #6b8bff; text-decoration: none; font-weight: 600; }
+.bottom-link a:hover { text-decoration: underline; }
+
+
+/* ══════════════════════════════════════════════════════
+   3. PUBLIC LANDING PAGE  (/home)
+══════════════════════════════════════════════════════ */
+
+.landing-body {
+    background: linear-gradient(135deg, #1a1c2e 0%, #12141f 50%, #1a1c2e 100%);
+    min-height: 100vh;
+    color: var(--white);
+}
+
+/* Top nav on landing page */
+.landing-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 60px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+}
+
+.landing-logo {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--white);
+    text-decoration: none;
+}
+
+.landing-logo span { color: var(--blue); } /* highlight part of logo */
+
+.landing-nav-links { display: flex; gap: 16px; }
+
+.nav-btn {
+    padding: 10px 22px;
+    border-radius: 50px;
+    font-size: .9rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    transition: all .2s;
+}
+
+.nav-btn-outline {
+    background: transparent;
+    color: var(--white);
+    border: 1px solid rgba(255,255,255,.3);
+}
+
+.nav-btn-outline:hover { background: rgba(255,255,255,.08); }
+
+.nav-btn-fill {
+    background: var(--blue);
+    color: var(--white);
+}
+
+.nav-btn-fill:hover { opacity: .9; }
+
+/* Hero section */
+.hero {
+    text-align: center;
+    padding: 100px 20px 80px;
+}
+
+.hero h1 {
+    font-size: 3.2rem;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 20px;
+}
+
+.hero h1 span { color: var(--blue); }
+
+.hero p {
+    font-size: 1.15rem;
+    color: rgba(255,255,255,.6);
+    max-width: 560px;
+    margin: 0 auto 36px;
+    line-height: 1.7;
+}
+
+.hero-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+
+.hero-btn {
+    padding: 14px 36px;
+    border-radius: 50px;
+    font-size: 1rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all .2s;
+}
+
+.hero-btn-blue {
+    background: linear-gradient(135deg, var(--blue) 0%, var(--blue2) 100%);
+    color: var(--white);
+}
+
+.hero-btn-blue:hover { opacity: .9; transform: translateY(-2px); }
+
+.hero-btn-ghost {
+    background: rgba(255,255,255,.08);
+    color: var(--white);
+    border: 1px solid rgba(255,255,255,.2);
+}
+
+.hero-btn-ghost:hover { background: rgba(255,255,255,.14); }
+
+/* Features section */
+.features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    max-width: 1000px;
+    margin: 0 auto 80px;
+    padding: 0 20px;
+}
+
+.feature-card {
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: var(--radius);
+    padding: 32px 28px;
+    text-align: center;
+}
+
+.feature-icon { font-size: 2.5rem; margin-bottom: 16px; }
+.feature-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 10px; }
+.feature-card p { font-size: .9rem; color: rgba(255,255,255,.55); line-height: 1.6; }
+
+
+/* ══════════════════════════════════════════════════════
+   4. APP LAYOUT  (Dashboard, Courses, Profile, Admin)
+   Light grey background + top navbar
+══════════════════════════════════════════════════════ */
+
+.app-body {
+    background: var(--grey-bg);
+    min-height: 100vh;
+}
+
+/* ── TOP NAVBAR ── */
+.navbar {
+    background: var(--card);        /* dark navbar */
+    padding: 0 32px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,.3);
+}
+
+/* Logo in navbar */
+.navbar-logo {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--white);
+    text-decoration: none;
+}
+
+.navbar-logo span { color: var(--blue); }
+
+/* Nav links in the middle */
+.navbar-links {
+    display: flex;
+    gap: 4px;
+}
+
+.navbar-link {
+    padding: 8px 16px;
+    border-radius: 10px;
+    color: rgba(255,255,255,.65);
+    text-decoration: none;
+    font-size: .9rem;
+    font-weight: 500;
+    transition: background .18s, color .18s;
+}
+
+.navbar-link:hover { background: rgba(255,255,255,.08); color: var(--white); }
+.navbar-link.active { background: var(--blue); color: var(--white); font-weight: 600; }
+
+/* Right side: role badge + logout */
+.navbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.navbar-user {
+    font-size: .85rem;
+    color: rgba(255,255,255,.7);
+}
+
+/* Small logout button in navbar */
+.btn-logout {
+    padding: 8px 18px;
+    background: rgba(239,68,68,.15);
+    color: #fca5a5;
+    border: 1px solid rgba(239,68,68,.25);
+    border-radius: 50px;
+    font-size: .85rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background .18s;
+}
+
+.btn-logout:hover { background: rgba(239,68,68,.3); }
+
+/* ── PAGE CONTENT AREA ── */
+.page-content {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px;
+}
+
+/* Page header row: title + optional button */
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.page-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.page-subtitle {
+    font-size: .9rem;
+    color: var(--muted);
+    margin-top: 4px;
+}
+
+/* White card used in app pages */
+.white-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+}
+
+
+/* ══════════════════════════════════════════════════════
+   5. DASHBOARD  —  Stat cards + quick links
+══════════════════════════════════════════════════════ */
+
+/* Grid of 3-4 stat cards */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+/* Individual stat card */
+.stat-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 22px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--blue);
+}
+
+.stat-card.green  { border-left-color: var(--green); }
+.stat-card.orange { border-left-color: var(--orange); }
+.stat-card.red    { border-left-color: var(--red); }
+
+.stat-icon {
+    font-size: 2rem;
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #eef0ff;
+    flex-shrink: 0;
+}
+
+.stat-card.green  .stat-icon { background: #d1fae5; }
+.stat-card.orange .stat-icon { background: #fff7ed; }
+.stat-card.red    .stat-icon { background: #fff1f2; }
+
+.stat-value { font-size: 1.8rem; font-weight: 800; color: var(--text); line-height: 1; }
+.stat-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+
+/* Welcome banner on dashboard */
+.welcome-banner {
+    background: linear-gradient(135deg, var(--blue) 0%, var(--blue2) 100%);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    color: var(--white);
+    margin-bottom: 28px;
+}
+
+.welcome-banner h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; }
+.welcome-banner p  { font-size: .95rem; opacity: .85; }
+
+
+/* ══════════════════════════════════════════════════════
+   6. COURSES  —  Grid of course cards
+══════════════════════════════════════════════════════ */
+
+/* Responsive grid: 3 per row on wide, 2 on medium, 1 on phone */
+.course-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+/* Individual course card */
+.course-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    transition: transform .2s, box-shadow .2s;
+}
+
+.course-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(0,0,0,.12);
+}
+
+/* Colored top stripe per category */
+.course-card-top {
+    height: 6px;
+    background: linear-gradient(90deg, var(--blue) 0%, var(--blue2) 100%);
+}
+
+.course-card-body { padding: 20px; }
+
+/* Category tag */
+.course-tag {
+    display: inline-block;
+    background: #eef0ff;
+    color: var(--blue);
+    font-size: .75rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 99px;
+    margin-bottom: 10px;
+}
+
+.course-card-body h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+}
+
+.course-card-body p {
+    font-size: .85rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 14px;
+
+    /* Limit to 2 lines with "..." */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Meta info: teacher name, duration, level */
+.course-meta {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: .8rem;
+    color: var(--muted);
+    margin-bottom: 16px;
+}
+
+.course-meta span { display: flex; align-items: center; gap: 4px; }
+
+/* Enrolled count badge */
+.enrolled-count {
+    font-size: .8rem;
+    color: var(--muted);
+    margin-bottom: 14px;
+}
+
+/* Action button at the bottom of a course card */
+.course-card-actions { padding: 0 20px 20px; }
+
+
+/* ══════════════════════════════════════════════════════
+   7. BUTTONS & BADGES  (reusable)
+══════════════════════════════════════════════════════ */
+
+/* Inline (non-full-width) button */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 22px;
+    border-radius: 50px;
+    font-size: .9rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+    transition: all .2s;
+}
+
+.btn-blue  { background: var(--blue); color: var(--white); }
+.btn-blue:hover  { opacity: .88; transform: translateY(-1px); }
+
+.btn-green { background: var(--green); color: var(--white); }
+.btn-green:hover { opacity: .88; }
+
+.btn-red   { background: var(--red); color: var(--white); }
+.btn-red:hover   { opacity: .88; }
+
+.btn-ghost {
+    background: transparent;
+    color: var(--blue);
+    border: 1px solid var(--blue);
+}
+.btn-ghost:hover { background: var(--blue); color: var(--white); }
+
+.btn-sm { padding: 6px 14px; font-size: .82rem; }
+
+/* Full-width button */
+.btn-full { width: 100%; }
+
+/* Role badges (small colored pills) */
+.badge {
+    display: inline-flex;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: capitalize;
+}
+
+.badge-admin   { background: #fef3c7; color: #92400e; }
+.badge-teacher { background: #dbeafe; color: #1e40af; }
+.badge-student { background: #d1fae5; color: #065f46; }
+.badge-blue    { background: #eef0ff; color: var(--blue); }
+
+
+/* ══════════════════════════════════════════════════════
+   8. FORMS  (Add course, Profile update)
+══════════════════════════════════════════════════════ */
+
+/* Form field on app (light) pages */
+.field { margin-bottom: 20px; }
+
+.field label {
+    display: block;
+    font-size: .88rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 7px;
+}
+
+.field input,
+.field select,
+.field textarea {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: .95rem;
+    color: var(--text);
+    background: #fafafa;
+    outline: none;
+    transition: border-color .18s, box-shadow .18s;
+    font-family: inherit;
+}
+
+.field textarea { resize: vertical; min-height: 120px; }
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(91,98,255,.12);
+    background: var(--white);
+}
+
+.field-note { font-size: .78rem; color: var(--muted); margin-top: 5px; }
+
+/* Two fields side by side */
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+
+/* ══════════════════════════════════════════════════════
+   9. TABLES  (Admin user management)
+══════════════════════════════════════════════════════ */
+
+.table-wrapper { overflow-x: auto; }
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .88rem;
+}
+
+.data-table th {
+    text-align: left;
+    padding: 12px 16px;
+    background: var(--grey-bg);
+    color: var(--muted);
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    border-bottom: 1px solid var(--border);
+}
+
+.data-table td {
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: middle;
+}
+
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: #f9fafb; }
+
+/* Name + avatar cell */
+.table-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+}
+
+/* Small avatar (letter in circle) */
+.avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--blue), var(--blue2));
+    color: var(--white);
+    font-size: .85rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Row of action buttons in table */
+.table-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* Inline form (so form doesn't stretch full width) */
+form.inline { display: inline; }
+
+
+/* ══════════════════════════════════════════════════════
+   10. PROFILE PAGE
+══════════════════════════════════════════════════════ */
+
+.profile-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.profile-info-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 32px 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    text-align: center;
+}
+
+/* Big avatar on profile page */
+.profile-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--blue), var(--blue2));
+    color: var(--white);
+    font-size: 2rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+}
+
+.profile-name  { font-size: 1.2rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.profile-email { font-size: .85rem; color: var(--muted); margin-bottom: 12px; }
+
+.profile-details {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    text-align: left;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: .85rem;
+    margin-bottom: 10px;
+}
+
+.detail-label { color: var(--muted); }
+.detail-value { font-weight: 600; color: var(--text); }
+
+
+/* ══════════════════════════════════════════════════════
+   11. ACCESS DENIED PAGE
+══════════════════════════════════════════════════════ */
+
+.denied-body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--grey-bg);
+}
+
+.denied-card {
+    background: var(--white);
+    border-radius: 24px;
+    padding: 48px 40px;
+    text-align: center;
+    box-shadow: var(--shadow);
+    max-width: 460px;
+    width: calc(100% - 32px);
+}
+
+.denied-card .icon  { font-size: 3.5rem; margin-bottom: 12px; }
+.denied-card h1     { font-size: 3.5rem; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+.denied-card h2     { font-size: 1.4rem; font-weight: 700; color: var(--text); margin-bottom: 14px; }
+.denied-card p      { color: var(--muted); line-height: 1.6; margin-bottom: 28px; }
+.denied-card .btns  { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+
+/* ══════════════════════════════════════════════════════
+   12. RESPONSIVE  —  Mobile screens
+══════════════════════════════════════════════════════ */
+
+@media (max-width: 900px) {
+    .features             { grid-template-columns: 1fr 1fr; }
+    .profile-layout       { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 768px) {
+    .landing-nav          { padding: 16px 24px; }
+    .hero h1              { font-size: 2.2rem; }
+    .features             { grid-template-columns: 1fr; }
+    .navbar-links         { display: none; }   /* hide nav links on small screens */
+    .page-content         { padding: 20px 16px; }
+    .field-row            { grid-template-columns: 1fr; }
+    .stats-grid           { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 480px) {
+    .hero h1              { font-size: 1.8rem; }
+    .hero-buttons         { flex-direction: column; align-items: center; }
+    .button-row           { flex-direction: column; }
+    .stats-grid           { grid-template-columns: 1fr; }
+    .auth-card            { padding: 28px 20px; }
+    .course-grid          { grid-template-columns: 1fr; }
+}
