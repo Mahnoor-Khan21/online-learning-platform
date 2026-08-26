@@ -8,9 +8,14 @@ const express    = require('express');
 const bcrypt     = require('bcrypt');
 const session    = require('express-session');
 const MongoStore = require('connect-mongo');
-const { User, Course } = require('./config');
+const { User, Course, databaseConnection } = require('./config');
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/learning-platform';
+const SESSION_SECRET = process.env.SESSION_SECRET;
+
+if (process.env.NODE_ENV === 'production' && !SESSION_SECRET) {
+    throw new Error('SESSION_SECRET is required in production. Add it in Vercel Environment Variables.');
+}
 
 // ── APP SETUP ────────────────────────────────────────────
 const app = express();
@@ -31,7 +36,7 @@ if (!process.env.MONGODB_URI && process.env.NODE_ENV === 'production') {
 
 // ── SESSIONS ─────────────────────────────────────────────
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'learnSecret123',
+    secret: SESSION_SECRET || 'learnSecret123',
     resave: false,
     saveUninitialized: false,
     store: sessionStore,
@@ -86,6 +91,7 @@ app.get('/login', (req, res) => {
 // Handle login form submission
 app.post('/login', async (req, res) => {
     try {
+        await databaseConnection;
         const { email, password } = req.body;
 
         if (!email || !password)
@@ -121,6 +127,7 @@ app.get('/signup', (req, res) => {
 // Handle signup form submission
 app.post('/signup', async (req, res) => {
     try {
+        await databaseConnection;
         const { username, email, password, role } = req.body;
 
         if (!username || !email || !password)
