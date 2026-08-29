@@ -9,6 +9,8 @@ const bcrypt     = require('bcrypt');
 const session    = require('express-session');
 const MongoStore = require('connect-mongo');
 const { User, Course, databaseConnection } = require('./config');
+const { sendVerificationEmail } = require('./email');
+const crypto = require('crypto');
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/learning-platform';
 const SESSION_SECRET = process.env.SESSION_SECRET;
@@ -105,6 +107,15 @@ app.post('/login', async (req, res) => {
         if (!match)
             return res.render('login', { error: 'Invalid email or password.' });
 
+        // New accounts must verify their email before they can log in.
+        // Existing users created before this feature (without emailVerified)
+        // are still allowed to log in.
+        if (user.emailVerified === false) {
+            return res.render('login', {
+                error: 'Please verify your email before logging in. Check your inbox for the verification link.'
+            });
+        }
+
         // Save user info in session
         req.session.userId   = user._id;
         req.session.userName = user.name;
@@ -145,9 +156,36 @@ app.post('/signup', async (req, res) => {
         // Hash the password before saving
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        await User.create({ name: username, email, password: hashedPassword, role: userRole });
+        // Create a secure, single-use verification token that expires in 24 hours.
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-        res.redirect('/login');
+        const user = await User.create({
+            name: username,
+            email,
+            password: hashedPassword,
+            role: userRole,
+            emailVerified: false,
+            verificationToken,
+            verificationTokenExpires
+        });
+
+        try {
+            await sendVerificationEmail({
+                to: user.email,
+                name: user.name,
+                token: verificationToken
+            });
+        } catch (emailError) {
+            // Do not leave an account that cannot be verified if email delivery fails.
+            await User.findByIdAndDelete(user._id);
+            console.error('Verification email error:', emailError);
+            return res.render('signup', {
+                error: 'Account could not be created because the verification email could not be sent. Please try again.'
+            });
+        }
+
+        res.render('verify-pending', { email: user.email });
 
     } catch (err) {
         console.error('Signup error:', err);
@@ -156,6 +194,49 @@ app.post('/signup', async (req, res) => {
             return res.render('signup', { error: 'Username or email already exists. Please choose another.' });
         }
         res.render('signup', { error: 'Something went wrong. Please try again.' });
+    }
+});
+
+// Verify email address from the link sent after signup
+app.get('/verify-email', async (req, res) => {
+    try {
+        const { token } = req.query;
+
+        if (!token) {
+            return res.render('verify-result', {
+                success: false,
+                message: 'Verification link is missing or invalid.'
+            });
+        }
+
+        const user = await User.findOne({
+            verificationToken: token,
+            verificationTokenExpires: { $gt: new Date() }
+        });
+
+        if (!user) {
+            return res.render('verify-result', {
+                success: false,
+                message: 'This verification link is invalid or has expired. Please sign up again to receive a new link.'
+            });
+        }
+
+        user.emailVerified = true;
+        user.verificationToken = null;
+        user.verificationTokenExpires = null;
+        await user.save();
+
+        res.render('verify-result', {
+            success: true,
+            message: 'Your email has been verified successfully. You can now log in.'
+        });
+
+    } catch (err) {
+        console.error('Email verification error:', err);
+        res.render('verify-result', {
+            success: false,
+            message: 'Something went wrong while verifying your email. Please try again.'
+        });
     }
 });
 

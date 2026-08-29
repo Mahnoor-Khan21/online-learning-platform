@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email — LearnHub</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="auth-body">
+    <div class="auth-card">
+        <h2>Check Your Email</h2>
+        <p style="margin:16px 0;color:#4b5563;">
+            We sent a verification link to <strong><%= email %></strong>.
+        </p>
+        <p style="margin-bottom:20px;color:#6b7280;">
+            Open the email and click <strong>Verify Email</strong>. The link expires in 24 hours.
+        </p>
+        <a href="/login" class="btn-primary" style="display:block;text-align:center;text-decoration:none;">Go to Login</a>
+    </div>
+</body>
+</html>

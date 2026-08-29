@@ -27,6 +27,12 @@ const userSchema = new mongoose.Schema({
     name:     { type: String, required: true, unique: true },
     email:    { type: String, required: true, unique: true },
     password: { type: String, required: true },
+
+    // Email verification fields
+    emailVerified: { type: Boolean, default: false },
+    verificationToken: { type: String, default: null },
+    verificationTokenExpires: { type: Date, default: null },
+
     // role decides what the user can do on the platform
     role: {
         type: String,

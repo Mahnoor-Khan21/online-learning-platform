@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Verification — LearnHub</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="auth-body">
+    <div class="auth-card">
+        <h2><%= success ? 'Email Verified ✓' : 'Verification Failed' %></h2>
+        <p style="margin:16px 0 22px;color:#4b5563;"><%= message %></p>
+        <a href="/login" class="btn-primary" style="display:block;text-align:center;text-decoration:none;">Go to Login</a>
+    </div>
+</body>
+</html>
