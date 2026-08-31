@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Reset — LearnHub</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="auth-body">
+    <div class="auth-card">
+        <h2><%= success ? 'Password Reset' : 'Reset Link Problem' %></h2>
+
+        <% if (success) { %>
+            <div class="success-msg"><%= message %></div>
+            <a class="btn-primary" href="/login">Go to Login</a>
+        <% } else { %>
+            <div class="error-msg"><%= message %></div>
+            <a class="btn-primary" href="/forgot-password">Request New Link</a>
+        <% } %>
+    </div>
+</body>
+</html>

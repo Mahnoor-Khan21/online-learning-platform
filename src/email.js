@@ -38,6 +38,33 @@ async function sendVerificationEmail({ to, name, token }) {
     });
 }
 
+async function sendPasswordResetEmail({ to, name, token }) {
+    const appUrl = (process.env.APP_URL || 'http://localhost:9000').replace(/\/$/, '');
+    const resetUrl = `${appUrl}/reset-password/${encodeURIComponent(token)}`;
+
+    await transporter.sendMail({
+        from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+        to,
+        subject: 'Reset your LearnHub password',
+        text: `Hi ${name},\n\nYou requested a password reset for your LearnHub account. Open this link to choose a new password:\n${resetUrl}\n\nThis link expires in 15 minutes. If you did not request this, you can ignore this email.`,
+        html: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;">
+                <h2>Reset your LearnHub password</h2>
+                <p>Hi ${escapeHtml(name)},</p>
+                <p>We received a request to reset your password. Click the button below to create a new password.</p>
+                <p>
+                    <a href="${resetUrl}"
+                       style="display:inline-block;padding:12px 20px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;">
+                       Reset Password
+                    </a>
+                </p>
+                <p>This reset link expires in 15 minutes.</p>
+                <p>If you did not request a password reset, you can safely ignore this email.</p>
+            </div>
+        `
+    });
+}
+
 // Keep the user's name safe when it is inserted into the HTML email.
 function escapeHtml(value) {
     return String(value)
@@ -48,4 +75,4 @@ function escapeHtml(value) {
         .replace(/'/g, '&#039;');
 }
 
-module.exports = { sendVerificationEmail };
+module.exports = { sendVerificationEmail, sendPasswordResetEmail };

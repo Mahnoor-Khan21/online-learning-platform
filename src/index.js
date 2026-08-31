@@ -9,7 +9,7 @@ const bcrypt     = require('bcrypt');
 const session    = require('express-session');
 const MongoStore = require('connect-mongo');
 const { User, Course, databaseConnection } = require('./config');
-const { sendVerificationEmail } = require('./email');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('./email');
 const crypto = require('crypto');
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/learning-platform';
@@ -126,6 +126,150 @@ app.post('/login', async (req, res) => {
     } catch (err) {
         console.error('Login error:', err);
         res.render('login', { error: 'Something went wrong. Please try again.' });
+    }
+});
+
+// ── PASSWORD RESET ───────────────────────────────────────
+// Show forgot-password form
+app.get('/forgot-password', (req, res) => {
+    if (req.session.userId) return res.redirect('/dashboard');
+    res.render('forgot-password');
+});
+
+// Send a password reset link to the user's email
+app.post('/forgot-password', async (req, res) => {
+    try {
+        await databaseConnection;
+        const email = String(req.body.email || '').trim().toLowerCase();
+
+        if (!email) {
+            return res.render('forgot-password', { error: 'Please enter your email address.' });
+        }
+
+        const user = await User.findOne({ email });
+
+        // Use the same response for existing and non-existing emails.
+        // This avoids revealing which emails have accounts.
+        if (!user) {
+            return res.render('forgot-password', {
+                success: 'If an account exists for this email, a password reset link has been sent.'
+            });
+        }
+
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+        user.resetPasswordToken = resetTokenHash;
+        user.resetPasswordTokenExpires = new Date(Date.now() + 15 * 60 * 1000);
+        await user.save();
+
+        try {
+            await sendPasswordResetEmail({
+                to: user.email,
+                name: user.name,
+                token: resetToken
+            });
+        } catch (emailError) {
+            // Do not leave an active reset token if email delivery failed.
+            user.resetPasswordToken = null;
+            user.resetPasswordTokenExpires = null;
+            await user.save();
+            console.error('Password reset email error:', emailError);
+            return res.render('forgot-password', {
+                error: 'The reset email could not be sent. Please try again.'
+            });
+        }
+
+        res.render('forgot-password', {
+            success: 'If an account exists for this email, a password reset link has been sent.'
+        });
+    } catch (err) {
+        console.error('Forgot password error:', err);
+        res.render('forgot-password', { error: 'Something went wrong. Please try again.' });
+    }
+});
+
+// Show reset-password form after the user opens the email link
+app.get('/reset-password/:token', async (req, res) => {
+    try {
+        const tokenHash = crypto.createHash('sha256').update(req.params.token).digest('hex');
+        const user = await User.findOne({
+            resetPasswordToken: tokenHash,
+            resetPasswordTokenExpires: { $gt: new Date() }
+        });
+
+        if (!user) {
+            return res.render('reset-result', {
+                success: false,
+                message: 'This password reset link is invalid or has expired. Please request a new one.'
+            });
+        }
+
+        res.render('reset-password', { token: req.params.token });
+    } catch (err) {
+        console.error('Reset password page error:', err);
+        res.render('reset-result', {
+            success: false,
+            message: 'Something went wrong. Please request a new password reset link.'
+        });
+    }
+});
+
+// Save the new password
+app.post('/reset-password/:token', async (req, res) => {
+    try {
+        await databaseConnection;
+        const { password, confirmPassword } = req.body;
+
+        if (!password || !confirmPassword) {
+            return res.render('reset-password', {
+                token: req.params.token,
+                error: 'Please fill in both password fields.'
+            });
+        }
+
+        if (password.length < 6) {
+            return res.render('reset-password', {
+                token: req.params.token,
+                error: 'Password must be at least 6 characters long.'
+            });
+        }
+
+        if (password !== confirmPassword) {
+            return res.render('reset-password', {
+                token: req.params.token,
+                error: 'Passwords do not match.'
+            });
+        }
+
+        const tokenHash = crypto.createHash('sha256').update(req.params.token).digest('hex');
+        const user = await User.findOne({
+            resetPasswordToken: tokenHash,
+            resetPasswordTokenExpires: { $gt: new Date() }
+        });
+
+        if (!user) {
+            return res.render('reset-result', {
+                success: false,
+                message: 'This password reset link is invalid or has expired. Please request a new one.'
+            });
+        }
+
+        user.password = await bcrypt.hash(password, 10);
+        user.resetPasswordToken = null;
+        user.resetPasswordTokenExpires = null;
+        await user.save();
+
+        res.render('reset-result', {
+            success: true,
+            message: 'Your password has been reset successfully. You can now log in with your new password.'
+        });
+    } catch (err) {
+        console.error('Reset password error:', err);
+        res.render('reset-result', {
+            success: false,
+            message: 'Something went wrong while resetting your password. Please try again.'
+        });
     }
 });
 

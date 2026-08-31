@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema({
     verificationToken: { type: String, default: null },
     verificationTokenExpires: { type: Date, default: null },
 
+    // Password reset fields
+    resetPasswordToken: { type: String, default: null },
+    resetPasswordTokenExpires: { type: Date, default: null },
+
     // role decides what the user can do on the platform
     role: {
         type: String,
