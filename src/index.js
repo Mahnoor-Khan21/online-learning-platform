@@ -113,10 +113,30 @@ app.post('/login', async (req, res) => {
         // Existing users created before this feature (without emailVerified)
         // are still allowed to log in.
         if (user.emailVerified === false) {
+            // Try to send a fresh verification email automatically when login
+            // is attempted. If SMTP fails, the user can use the Resend button.
+            let verificationSendError = false;
+            try {
+                const verificationToken = crypto.randomBytes(32).toString('hex');
+                user.verificationToken = verificationToken;
+                user.verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                await user.save();
+
+                await sendVerificationEmail({
+                    to: user.email,
+                    name: user.name,
+                    token: verificationToken
+                });
+            } catch (emailError) {
+                verificationSendError = true;
+                console.error('Automatic verification email error:', emailError);
+            }
+
             return res.render('login', {
                 error: 'Please verify your email before logging in. Check your inbox for the verification link.',
                 showResendVerification: true,
-                verificationEmail: user.email
+                verificationEmail: user.email,
+                verificationSendError
             });
         }
 
