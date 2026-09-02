@@ -3,21 +3,33 @@ const nodemailer = require('nodemailer');
 
 const smtpPort = Number(process.env.SMTP_PORT || 587);
 
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: smtpPort,
-    secure: smtpPort === 465,
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
+function getAppUrl() {
+    const configuredUrl = process.env.APP_URL;
+    const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '';
+    return (configuredUrl || vercelUrl || 'http://localhost:9000').replace(/\/$/, '');
+}
+
+function getTransporter() {
+    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        throw new Error('SMTP_HOST, SMTP_USER and SMTP_PASS must be configured.');
     }
-});
+
+    return nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS
+        }
+    });
+}
 
 async function sendVerificationEmail({ to, name, token }) {
-    const appUrl = (process.env.APP_URL || 'http://localhost:9000').replace(/\/$/, '');
+    const appUrl = getAppUrl();
     const verifyUrl = `${appUrl}/verify-email?token=${encodeURIComponent(token)}`;
 
-    await transporter.sendMail({
+    await getTransporter().sendMail({
         from: process.env.EMAIL_FROM || process.env.SMTP_USER,
         to,
         subject: 'Verify your LearnHub email',
@@ -39,10 +51,10 @@ async function sendVerificationEmail({ to, name, token }) {
 }
 
 async function sendPasswordResetEmail({ to, name, token }) {
-    const appUrl = (process.env.APP_URL || 'http://localhost:9000').replace(/\/$/, '');
+    const appUrl = getAppUrl();
     const resetUrl = `${appUrl}/reset-password/${encodeURIComponent(token)}`;
 
-    await transporter.sendMail({
+    await getTransporter().sendMail({
         from: process.env.EMAIL_FROM || process.env.SMTP_USER,
         to,
         subject: 'Reset your LearnHub password',

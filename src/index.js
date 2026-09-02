@@ -1,3 +1,5 @@
+require('dotenv').config({ path: process.env.NODE_ENV === 'production' ? '.env' : '.env.local' });
+
 // ─────────────────────────────────────────────────────────
 // index.js  —  Online Learning Platform Server
 // ─────────────────────────────────────────────────────────
@@ -112,7 +114,9 @@ app.post('/login', async (req, res) => {
         // are still allowed to log in.
         if (user.emailVerified === false) {
             return res.render('login', {
-                error: 'Please verify your email before logging in. Check your inbox for the verification link.'
+                error: 'Please verify your email before logging in. Check your inbox for the verification link.',
+                showResendVerification: true,
+                verificationEmail: user.email
             });
         }
 
@@ -338,6 +342,63 @@ app.post('/signup', async (req, res) => {
             return res.render('signup', { error: 'Username or email already exists. Please choose another.' });
         }
         res.render('signup', { error: 'Something went wrong. Please try again.' });
+    }
+});
+
+// Resend verification email manually from the login page
+app.post('/resend-verification', async (req, res) => {
+    try {
+        await databaseConnection;
+        const email = String(req.body.email || '').trim().toLowerCase();
+
+        if (!email) {
+            return res.render('login', { error: 'Please enter your email address.' });
+        }
+
+        const user = await User.findOne({ email });
+
+        // Do not reveal whether an email is registered.
+        if (!user) {
+            return res.render('login', {
+                success: 'If this email belongs to an account, a verification email has been sent.'
+            });
+        }
+
+        if (user.emailVerified !== false) {
+            return res.render('login', {
+                success: 'This email is already verified. You can log in.'
+            });
+        }
+
+        // Create a fresh verification token that expires in 24 hours.
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        user.verificationToken = verificationToken;
+        user.verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await user.save();
+
+        try {
+            await sendVerificationEmail({
+                to: user.email,
+                name: user.name,
+                token: verificationToken
+            });
+        } catch (emailError) {
+            console.error('Resend verification email error:', emailError);
+            return res.render('login', {
+                error: 'The verification email could not be sent. Please try again.',
+                showResendVerification: true,
+                verificationEmail: user.email
+            });
+        }
+
+        res.render('login', {
+            success: 'A new verification email has been sent. Please check your inbox.',
+            showResendVerification: true,
+            verificationEmail: user.email
+        });
+    } catch (err) {
+        console.error('Resend verification error:', err);
+        res.render('login', { error: 'Something went wrong. Please try again.' });
     }
 });
 

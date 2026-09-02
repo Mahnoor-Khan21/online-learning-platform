@@ -882,3 +882,14 @@ form.inline { display: inline; }
     .auth-card            { padding: 28px 20px; }
     .course-grid          { grid-template-columns: 1fr; }
 }
+
+
+.success-msg {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 14px;
+}

@@ -16,6 +16,10 @@
             <div class="error-msg"><%= error %></div>
         <% } %>
 
+        <% if (typeof success !== 'undefined') { %>
+            <div class="success-msg"><%= success %></div>
+        <% } %>
+
         <form action="/login" method="POST">
             <div class="form-group">
                 <label for="email">Email:</label>
@@ -28,6 +32,13 @@
             </div>
             <button type="submit" class="btn-primary">Login</button>
         </form>
+
+        <% if (typeof showResendVerification !== 'undefined' && showResendVerification) { %>
+            <form action="/resend-verification" method="POST" style="margin-top:12px;">
+                <input type="hidden" name="email" value="<%= verificationEmail || '' %>">
+                <button type="submit" class="btn-primary" style="width:100%;">Resend verification email</button>
+            </form>
+        <% } %>
 
         <div class="bottom-link">
             Don't have an account? <a href="/signup">Sign up</a>
