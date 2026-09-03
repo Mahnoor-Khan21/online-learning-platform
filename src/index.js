@@ -10,7 +10,7 @@ const express    = require('express');
 const bcrypt     = require('bcrypt');
 const session    = require('express-session');
 const MongoStore = require('connect-mongo');
-const { User, Course, QuizAttempt, Certificate, Notification, databaseConnection } = require('./config');
+const { User, Course, QuizAttempt, Certificate, Notification, Category, databaseConnection } = require('./config');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('./email');
 const crypto = require('crypto');
 const multer = require('multer');
@@ -22,6 +22,8 @@ const SESSION_SECRET = process.env.SESSION_SECRET;
 if (process.env.NODE_ENV === 'production' && !SESSION_SECRET) {
     throw new Error('SESSION_SECRET is required in production. Add it in Vercel Environment Variables.');
 }
+
+databaseConnection.then(() => Course.updateMany({ status: { $exists: false } }, { $set: { status: 'published' } }).catch(() => {}));
 
 // ── APP SETUP ────────────────────────────────────────────
 const app = express();
@@ -40,6 +42,25 @@ const profileUpload = multer({
         cb(null, true);
     }
 });
+
+const courseUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 2 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!allowed.includes(file.mimetype)) return cb(new Error('Only JPG, PNG, WEBP, and GIF course thumbnails are allowed.'));
+        cb(null, true);
+    }
+});
+
+function handleCourseUpload(req, res, next) {
+    courseUpload.single('thumbnailFile')(req, res, err => {
+        if (!err) return next();
+        const message = err.code === 'LIMIT_FILE_SIZE' ? 'Course thumbnail must be 2 MB or smaller.' : (err.message || 'Could not upload course thumbnail.');
+        return res.status(400).send(message);
+    });
+}
+
 
 // Convert upload errors into a normal profile-page message instead of a generic 500.
 function handleProfileUpload(req, res, next) {
@@ -361,14 +382,13 @@ app.get('/signup', (req, res) => {
 app.post('/signup', async (req, res) => {
     try {
         await databaseConnection;
-        const { username, email, password, role } = req.body;
+        const { username, email, password } = req.body;
 
         if (!username || !email || !password)
             return res.render('signup', { error: 'All fields are required.' });
 
-        // Validate role
-        const validRoles = ['admin', 'teacher', 'student'];
-        const userRole = validRoles.includes(role) ? role : 'student';
+        // Public signup can only create student accounts. Admin assigns instructor/admin roles.
+        const userRole = 'student';
 
         // Check if email or name already exists
         const existing = await User.findOne({ $or: [{ email }, { name: username }] });
@@ -563,12 +583,35 @@ app.get('/dashboard', requireLogin, async (req, res) => {
         let data = { name: userName, role: userRole, userId };
 
         if (userRole === 'admin') {
-            data.totalUsers   = await User.countDocuments();
-            data.totalCourses = await Course.countDocuments();
-            data.recentUsers  = await User.find().sort({ createdAt: -1 }).limit(5).lean();
+            const [totalStudents, totalInstructors, totalCourses, users, allCourses] = await Promise.all([
+                User.countDocuments({ role: 'student' }), User.countDocuments({ role: 'teacher' }), Course.countDocuments(),
+                User.find({}, { password: 0, resetPasswordToken: 0, verificationToken: 0 }).sort({ createdAt: -1 }).limit(8).lean(), Course.find().lean()
+            ]);
+            const totalEnrollments = allCourses.reduce((n, c) => n + (c.enrolledStudents || []).length, 0);
+            const completedCourses = allCourses.reduce((n, c) => n + (c.completedStudents || []).length, 0);
+            const reviewCount = allCourses.reduce((n, c) => n + (c.reviews || []).length, 0);
+            const ratingSum = allCourses.reduce((n, c) => n + (c.reviews || []).reduce((a, r) => a + Number(r.rating || 0), 0), 0);
+            data.totalUsers = await User.countDocuments(); data.totalStudents = totalStudents; data.totalInstructors = totalInstructors; data.totalCourses = totalCourses;
+            data.totalEnrollments = totalEnrollments; data.completedCourses = completedCourses; data.averageRating = reviewCount ? Math.round((ratingSum / reviewCount) * 10) / 10 : 0;
+            data.recentUsers = users; data.recentCourses = allCourses.sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt)).slice(0,8);
 
         } else if (userRole === 'teacher') {
-            data.myCourses = await Course.find({ teacherId: userId }).lean();
+            const myCourses = await Course.find({ teacherId: userId }).lean();
+            const courseIds = myCourses.map(c => c._id);
+            const enrollments = myCourses.reduce((n, c) => n + (c.enrolledStudents || []).length, 0);
+            const studentIds = [...new Set(myCourses.flatMap(c => (c.enrolledStudents || []).map(id => String(id))))];
+            const totalRatingCount = myCourses.reduce((n, c) => n + (c.reviews || []).length, 0);
+            const ratingSum = myCourses.reduce((n, c) => n + (c.reviews || []).reduce((a, r) => a + Number(r.rating || 0), 0), 0);
+            data.myCourses = myCourses;
+            data.totalCourses = myCourses.length;
+            data.totalStudents = studentIds.length;
+            data.totalEnrollments = enrollments;
+            data.averageRating = totalRatingCount ? Math.round((ratingSum / totalRatingCount) * 10) / 10 : 0;
+            data.coursePerformance = myCourses.map(c => {
+                const total = (c.lessons || []).length;
+                const completed = (c.completedStudents || []).length;
+                return { ...c, enrollmentCount: (c.enrolledStudents || []).length, completedCount: completed, completionRate: (c.enrolledStudents || []).length ? Math.round(completed / c.enrolledStudents.length * 100) : 0, reviewCount: (c.reviews || []).length };
+            });
 
         } else {
             // student dashboard
@@ -632,6 +675,16 @@ app.get('/dashboard', requireLogin, async (req, res) => {
 // ─────────────────────────────────────────────────────────
 //  COURSES
 // ─────────────────────────────────────────────────────────
+async function getCategories() {
+    let categories = await Category.find().sort({ name: 1 }).lean();
+    if (!categories.length) {
+        const defaults = ['General','Web Development','Data Science','Design','Business','Marketing','Programming','Mathematics','Science','Language'];
+        try { await Category.insertMany(defaults.map(name => ({ name })), { ordered: false }); } catch (e) {}
+        categories = await Category.find().sort({ name: 1 }).lean();
+    }
+    return categories;
+}
+
 
 function normalizeList(value) {
     if (Array.isArray(value)) return value.map(v => String(v).trim()).filter(Boolean);
@@ -676,21 +729,21 @@ app.get('/courses', requireLogin, async (req, res) => {
         const pageSize = 9;
 
         const filter = {};
-        if (search) {
-            // Search course name, instructor, and topic-related text (description/category/lesson content).
-            filter.$or = [
-                { title: { $regex: search, $options: 'i' } },
-                { teacherName: { $regex: search, $options: 'i' } },
-                { description: { $regex: search, $options: 'i' } },
-                { category: { $regex: search, $options: 'i' } },
-                { 'lessons.title': { $regex: search, $options: 'i' } },
-                { 'lessons.description': { $regex: search, $options: 'i' } },
-                { 'lessons.content': { $regex: search, $options: 'i' } }
-            ];
-        }
+        const andConditions = [];
+        if (search) andConditions.push({ $or: [
+            { title: { $regex: search, $options: 'i' } },
+            { teacherName: { $regex: search, $options: 'i' } },
+            { description: { $regex: search, $options: 'i' } },
+            { category: { $regex: search, $options: 'i' } },
+            { 'lessons.title': { $regex: search, $options: 'i' } },
+            { 'lessons.description': { $regex: search, $options: 'i' } },
+            { 'lessons.content': { $regex: search, $options: 'i' } }
+        ] });
         if (category) filter.category = category;
         if (level) filter.level = level;
         if (rating) filter.rating = { $gte: rating };
+        if (userRole === 'student') andConditions.push({ $or: [{ status: 'published' }, { status: { $exists: false } }] });
+        if (andConditions.length) filter.$and = andConditions;
 
         let sortSpec = { createdAt: -1 };
         if (sort === 'popular') sortSpec = { enrolledStudentsCount: -1, createdAt: -1 };
@@ -783,12 +836,13 @@ app.get('/my-courses', requireLogin, requireRole('student'), async (req, res) =>
 });
 
 // Show add course form
-app.get('/courses/add', requireLogin, requireRole('teacher', 'admin'), (req, res) => {
-    res.render('add-course', { name: req.session.userName, role: req.session.userRole });
+app.get('/courses/add', requireLogin, requireRole('teacher', 'admin'), async (req, res) => {
+    const categories = await getCategories();
+    res.render('add-course', { name: req.session.userName, role: req.session.userRole, categories });
 });
 
 // Handle add course form
-app.post('/courses/add', requireLogin, requireRole('teacher', 'admin'), async (req, res) => {
+app.post('/courses/add', requireLogin, requireRole('teacher', 'admin'), handleCourseUpload, async (req, res) => {
     try {
         const { title, description, category, duration, level, thumbnail, learningOutcomes, lessons, quizName, quizQuestions } = req.body;
         if (!title || title.trim().length < 3 || !description || description.trim().length < 10) {
@@ -796,13 +850,13 @@ app.post('/courses/add', requireLogin, requireRole('teacher', 'admin'), async (r
         }
         const parsedLessons = parseLessons(lessons);
         const newCourse = await Course.create({
-            title: title.trim(), description: description.trim(), thumbnail: String(thumbnail || '').trim(),
+            title: title.trim(), description: description.trim(), thumbnail: req.file ? `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}` : String(thumbnail || '').trim(),
             category: category || 'General', duration: duration || '4 weeks', level: level || 'Beginner',
+            status: req.session.userRole === 'admin' ? 'published' : 'pending',
             learningOutcomes: normalizeList(learningOutcomes), lessons: parsedLessons, quizzes: quizQuestions ? [{ name: String(quizName || 'Course Quiz').trim() || 'Course Quiz', questions: parseQuizzes(quizQuestions) }] : [],
             teacherId: req.session.userId, teacherName: req.session.userName
         });
-        const students = await User.find({ role: 'student' }).select('_id').lean();
-        await notifyUsers(students.map(s => s._id), 'course', 'New course available', `${newCourse.title} is now available on LearnHub.`, `/courses/${newCourse._id}`);
+        if (newCourse.status === 'published') { const students = await User.find({ role: 'student' }).select('_id').lean(); await notifyUsers(students.map(s => s._id), 'course', 'New course available', `${newCourse.title} is now available on LearnHub.`, `/courses/${newCourse._id}`); }
         res.redirect('/courses');
     } catch (err) {
         console.error('Add course error:', err);
@@ -816,6 +870,7 @@ app.get('/courses/:id', requireLogin, async (req, res) => {
         const { userId, userName, userRole } = req.session;
         const course = await Course.findById(req.params.id).lean();
         if (!course) return res.redirect('/courses');
+        if (userRole === 'student' && course.status !== 'published') return res.redirect('/courses');
         const isEnrolled = (course.enrolledStudents || []).some(id => id.toString() === userId.toString());
         const isCompleted = (course.completedStudents || []).some(id => id.toString() === userId.toString());
         const isOwner = course.teacherId.toString() === userId.toString();
@@ -1084,6 +1139,52 @@ app.post('/courses/:id/delete', requireLogin, requireRole('teacher', 'admin'), a
 });
 
 // ─────────────────────────────────────────────────────────
+//  INSTRUCTOR / ADMIN MANAGEMENT
+// ─────────────────────────────────────────────────────────
+app.get('/instructor/courses/:id/students', requireLogin, requireRole('teacher','admin'), async (req,res) => {
+    try {
+        const course = await Course.findById(req.params.id).lean();
+        if (!course || (req.session.userRole === 'teacher' && course.teacherId.toString() !== req.session.userId.toString())) return res.status(403).render('access-denied',{name:req.session.userName,role:req.session.userRole});
+        const students = await User.find({_id: {$in: course.enrolledStudents || []}}, {password:0,resetPasswordToken:0,verificationToken:0}).lean();
+        const uidMap = new Map(students.map(s => [s._id.toString(), s]));
+        const rows = (course.enrolledStudents || []).map(id => { const p=(course.progress||[]).find(x=>x.userId?.toString()===id.toString()); const total=(course.lessons||[]).length; const done=p?.completedLessons?.length||0; return {student:uidMap.get(id.toString()), progress: total ? Math.round(done/total*100):0, completed: done>=total&&total>0}; });
+        res.render('instructor-students',{name:req.session.userName,role:req.session.userRole,course,rows});
+    } catch(e){console.error(e);res.redirect('/dashboard');}
+});
+
+app.get('/courses/:id/edit', requireLogin, requireRole('teacher','admin'), async (req,res)=>{
+    try { const course=await Course.findById(req.params.id).lean(); if(!course) return res.redirect('/courses'); if(req.session.userRole==='teacher'&&course.teacherId.toString()!==req.session.userId.toString()) return res.status(403).render('access-denied',{name:req.session.userName,role:req.session.userRole}); const categories=await getCategories(); res.render('edit-course',{name:req.session.userName,role:req.session.userRole,course,categories}); }
+    catch(e){console.error(e);res.redirect('/dashboard');}
+});
+app.post('/courses/:id/edit', requireLogin, requireRole('teacher','admin'), handleCourseUpload, async (req,res)=>{
+    try {
+        const course=await Course.findById(req.params.id); if(!course) return res.redirect('/courses'); if(req.session.userRole==='teacher'&&course.teacherId.toString()!==req.session.userId.toString()) return res.status(403).send('Not authorized.');
+        const {title,description,category,duration,level,thumbnail,learningOutcomes,lessons,quizName,quizQuestions,status}=req.body;
+        if(!title||title.trim().length<3||!description||description.trim().length<10) return res.status(400).send('Invalid course title or description.');
+        course.title=title.trim(); course.description=description.trim(); course.category=category||'General'; course.duration=duration||'4 weeks'; course.level=level||'Beginner'; course.learningOutcomes=normalizeList(learningOutcomes); course.lessons=parseLessons(lessons); course.quizzes=quizQuestions?[{name:String(quizName||'Course Quiz').trim()||'Course Quiz',questions:parseQuizzes(quizQuestions)}]:[];
+        if(req.file) course.thumbnail=`data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`; else if(thumbnail!==undefined) course.thumbnail=String(thumbnail||'').trim();
+        if(req.session.userRole==='admin' && ['draft','pending','published','rejected'].includes(status)) course.status=status;
+        else if(req.session.userRole==='teacher' && course.status==='rejected') course.status='pending';
+        await course.save();
+        if(course.status==='published') { const students=await User.find({role:'student'}).select('_id').lean(); await notifyUsers(students.map(s=>s._id),'course','Course updated',`${course.title} has been updated.`, `/courses/${course._id}`); }
+        res.redirect(`/courses/${course._id}`);
+    } catch(e){console.error(e);res.status(500).send('Could not update course.');}
+});
+
+app.get('/admin', requireLogin, requireRole('admin'), (req,res)=>res.redirect('/dashboard'));
+app.get('/admin/courses', requireLogin, requireRole('admin'), async(req,res)=>{ const courses=await Course.find().sort({createdAt:-1}).lean(); res.render('admin-courses',{name:req.session.userName,role:req.session.userRole,courses}); });
+app.post('/admin/courses/:id/status', requireLogin, requireRole('admin'), async(req,res)=>{ try{ const status=['draft','pending','published','rejected'].includes(req.body.status)?req.body.status:null; if(!status) return res.redirect('/admin/courses'); const c=await Course.findByIdAndUpdate(req.params.id,{status},{new:true}); if(c&&status==='published'){const students=await User.find({role:'student'}).select('_id').lean();await notifyUsers(students.map(s=>s._id),'course','New course available',`${c.title} is now available on LearnHub.`, `/courses/${c._id}`);} res.redirect('/admin/courses'); }catch(e){console.error(e);res.redirect('/admin/courses');} });
+app.get('/admin/categories', requireLogin, requireRole('admin'), async(req,res)=>res.render('admin-categories',{name:req.session.userName,role:req.session.userRole,categories:await getCategories()}));
+app.post('/admin/categories', requireLogin, requireRole('admin'), async(req,res)=>{ try{const name=String(req.body.name||'').trim();if(name)await Category.create({name});res.redirect('/admin/categories');}catch(e){res.redirect('/admin/categories');} });
+app.post('/admin/categories/:id/delete', requireLogin, requireRole('admin'), async(req,res)=>{try{await Category.findByIdAndDelete(req.params.id);res.redirect('/admin/categories');}catch(e){res.redirect('/admin/categories');}});
+app.get('/admin/enrollments', requireLogin, requireRole('admin'), async(req,res)=>{const courses=await Course.find().lean();const rows=[];for(const c of courses)for(const id of (c.enrolledStudents||[])){const u=await User.findById(id,{password:0}).lean();const p=(c.progress||[]).find(x=>x.userId?.toString()===id.toString());rows.push({course:c,student:u,progress:c.lessons.length?Math.round((p?.completedLessons?.length||0)/c.lessons.length*100):0});}res.render('admin-enrollments',{name:req.session.userName,role:req.session.userRole,rows});});
+app.get('/admin/quizzes', requireLogin, requireRole('admin'), async(req,res)=>{const attempts=await QuizAttempt.find().sort({attemptedAt:-1}).limit(300).lean();res.render('admin-quizzes',{name:req.session.userName,role:req.session.userRole,attempts});});
+app.get('/admin/reviews', requireLogin, requireRole('admin'), async(req,res)=>{const courses=await Course.find({'reviews.0':{$exists:true}}).lean();const reviews=[];courses.forEach(c=>(c.reviews||[]).forEach(r=>reviews.push({...r,courseId:c._id,courseTitle:c.title})));reviews.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));res.render('admin-reviews',{name:req.session.userName,role:req.session.userRole,reviews});});
+app.post('/admin/reviews/delete', requireLogin, requireRole('admin'), async(req,res)=>{try{const c=await Course.findById(req.body.courseId);if(c){c.reviews=(c.reviews||[]).filter(r=>r._id.toString()!==String(req.body.reviewId));c.rating=c.reviews.length?Math.round(c.reviews.reduce((n,r)=>n+r.rating,0)/c.reviews.length*10)/10:0;await c.save();}res.redirect('/admin/reviews');}catch(e){res.redirect('/admin/reviews');}});
+app.get('/admin/notifications', requireLogin, requireRole('admin'), async(req,res)=>{const notifications=await Notification.find().sort({createdAt:-1}).limit(300).lean();res.render('admin-notifications',{name:req.session.userName,role:req.session.userRole,notifications});});
+app.post('/admin/notifications/clear', requireLogin, requireRole('admin'), async(req,res)=>{await Notification.deleteMany({});res.redirect('/admin/notifications');});
+
+// ─────────────────────────────────────────────────────────
 //  PROFILE
 // ─────────────────────────────────────────────────────────
 
@@ -1222,32 +1323,35 @@ app.post('/profile/change-password', requireLogin, async (req, res) => {
 app.get('/admin/users', requireLogin, requireRole('admin'), async (req, res) => {
     try {
         const users = await User.find({}, { password: 0 }).lean();
-        res.render('admin-users', { name: req.session.userName, role: req.session.userRole, users });
+        res.render('admin-users', { name: req.session.userName, role: req.session.userRole, userId: req.session.userId, users, error: req.query.error, success: req.query.success });
     } catch (err) {
         console.error('Admin users error:', err);
         res.redirect('/dashboard');
     }
 });
 
+app.post('/admin/users/create', requireLogin, requireRole('admin'), async (req,res)=>{
+    try { const name=String(req.body.name||'').trim(), email=String(req.body.email||'').trim().toLowerCase(), password=String(req.body.password||''), role=['student','teacher','admin'].includes(req.body.role)?req.body.role:'student'; if(name.length<2||!email||password.length<6) return res.redirect('/admin/users?error=Invalid%20user%20details'); const exists=await User.findOne({$or:[{email},{name}]}); if(exists) return res.redirect('/admin/users?error=Email%20or%20username%20already%20exists'); await User.create({name,email,password:await bcrypt.hash(password,10),role,emailVerified:true}); res.redirect('/admin/users?success=User%20created'); } catch(e){console.error(e);res.redirect('/admin/users?error=Could%20not%20create%20user');}
+});
+
 app.post('/admin/users/:id/delete', requireLogin, requireRole('admin'), async (req, res) => {
     try {
-        if (req.params.id === req.session.userId.toString())
-            return res.redirect('/admin/users');
-        await User.findByIdAndDelete(req.params.id);
-        res.redirect('/admin/users');
-    } catch (err) {
-        console.error('Delete user error:', err);
-        res.redirect('/admin/users');
-    }
+        if (req.params.id === req.session.userId.toString()) return res.redirect('/admin/users?error=You%20cannot%20delete%20your%20own%20account');
+        await Course.updateMany({}, { $pull: { enrolledStudents: req.params.id, completedStudents: req.params.id, progress: { userId: req.params.id } } });
+        await Course.updateMany({}, { $pull: { reviews: { userId: req.params.id } } });
+        const affected = await Course.find({}).lean();
+        for (const c of affected) { const reviews=c.reviews||[]; const avg=reviews.length?Math.round(reviews.reduce((n,r)=>n+r.rating,0)/reviews.length*10)/10:0; await Course.updateOne({_id:c._id},{$set:{rating:avg}}); }
+        await Promise.all([QuizAttempt.deleteMany({userId:req.params.id}), Certificate.deleteMany({userId:req.params.id}), Notification.deleteMany({userId:req.params.id}), User.findByIdAndDelete(req.params.id)]);
+        res.redirect('/admin/users?success=User%20deleted');
+    } catch (err) { console.error('Delete user error:', err); res.redirect('/admin/users?error=Could%20not%20delete%20user'); }
 });
 
 app.post('/admin/users/:id/role', requireLogin, requireRole('admin'), async (req, res) => {
     try {
         const { role } = req.body;
         const validRoles = ['admin', 'teacher', 'student'];
-        if (validRoles.includes(role)) {
-            await User.findByIdAndUpdate(req.params.id, { role });
-        }
+        if (req.params.id === req.session.userId.toString()) return res.redirect('/admin/users?error=You%20cannot%20change%20your%20own%20role');
+        if (validRoles.includes(role)) await User.findByIdAndUpdate(req.params.id, { role });
         res.redirect('/admin/users');
     } catch (err) {
         console.error('Change role error:', err);

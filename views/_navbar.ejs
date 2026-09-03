@@ -6,7 +6,7 @@
     <a href="/courses" class="navbar-link <%= active === 'courses' ? 'active' : '' %>">Courses</a>
     <% if (role === 'student') { %><a href="/my-courses" class="navbar-link <%= active === 'my-courses' ? 'active' : '' %>">My Courses</a><a href="/quiz-history" class="navbar-link <%= active === 'quiz-history' ? 'active' : '' %>">Quiz History</a><% } %>
     <a href="/profile" class="navbar-link <%= active === 'profile' ? 'active' : '' %>">Profile</a>
-    <% if (role === 'admin') { %><a href="/admin/users" class="navbar-link <%= active === 'users' ? 'active' : '' %>">Users</a><% } %>
+    <% if (role === 'teacher') { %><a href="/courses/add" class="navbar-link">Create Course</a><% } %><% if (role === 'admin') { %><a href="/admin/users" class="navbar-link <%= active === 'users' ? 'active' : '' %>">Admin</a><% } %>
   </div>
   <div class="navbar-right">
     <div class="notification-menu" id="notificationMenu">
@@ -20,7 +20,7 @@
         <div class="notification-dropdown-foot"><form action="/notifications/read-all" method="POST"><button type="submit">Mark all as read</button></form><a href="/notifications">View all notifications →</a></div>
       </div>
     </div>
-    <span class="navbar-user">👋 <%= name %></span><span class="badge badge-<%= role %>"><%= role %></span><a href="/logout-confirm" class="btn-logout">Logout</a>
+    <span class="navbar-user">👋 <%= name %></span><span class="badge badge-<%= role %>"><%= role === 'teacher' ? 'Instructor' : role === 'admin' ? 'Admin' : 'Student' %></span><a href="/logout-confirm" class="btn-logout">Logout</a>
   </div>
 </nav>
 <script>

@@ -150,5 +150,12 @@ notificationSchema.index({ userId: 1, createdAt: -1 });
 notificationSchema.index({ userId: 1, readAt: 1 });
 const Notification = mongoose.model("notifications", notificationSchema);
 
+// ─── CATEGORY MODEL ─────────────────────────────────────
+const categorySchema = new mongoose.Schema({
+    name: { type: String, required: true, unique: true, trim: true, maxlength: 80 },
+    createdAt: { type: Date, default: Date.now }
+});
+const Category = mongoose.model('categories', categorySchema);
+
 // Export all models so index.js can use them
-module.exports = { User, Course, QuizAttempt, Certificate, Notification, databaseConnection };
+module.exports = { User, Course, QuizAttempt, Certificate, Notification, Category, databaseConnection };

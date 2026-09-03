@@ -25,11 +25,11 @@
 
         <div class="white-card" style="max-width:820px;">
 <% if (typeof error !== 'undefined') { %><div class="error-msg" style="margin-bottom:20px;"><%= error %></div><% } %>
-<form action="/courses/add" method="POST">
+<form action="/courses/add" method="POST" enctype="multipart/form-data">
 <div class="field"><label for="title">Course Title *</label><input id="title" name="title" required minlength="3" placeholder="e.g. Full-Stack JavaScript Masterclass"></div>
-<div class="field"><label for="thumbnail">Course Thumbnail URL</label><input id="thumbnail" name="thumbnail" type="url" placeholder="https://example.com/course-image.jpg"><span class="field-note">Optional image URL. Use a landscape course cover.</span></div>
+<div class="field"><label for="thumbnail">Course Thumbnail URL</label><input id="thumbnail" name="thumbnail" type="url" placeholder="https://example.com/course-image.jpg"><span class="field-note">Optional image URL.</span><label style="margin-top:8px">Or upload thumbnail</label><input name="thumbnailFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><span class="field-note">JPG/PNG/WEBP/GIF, max 2 MB.</span></div>
 <div class="field"><label for="description">Description *</label><textarea id="description" name="description" required minlength="10" placeholder="Explain what students will learn and who the course is for..."></textarea></div>
-<div class="field-row"><div class="field"><label for="category">Category</label><select id="category" name="category"><% ['General','Web Development','Data Science','Design','Business','Marketing','Programming','Mathematics','Science','Language'].forEach(x=>{ %><option value="<%=x%>"><%=x%></option><% }) %></select></div><div class="field"><label for="level">Difficulty</label><select id="level" name="level"><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select></div></div>
+<div class="field-row"><div class="field"><label for="category">Category</label><select id="category" name="category"><% (categories || []).forEach(x=>{ %><option value="<%=x.name%>"><%=x.name%></option><% }) %></select></div><div class="field"><label for="level">Difficulty</label><select id="level" name="level"><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select></div></div>
 <div class="field"><label for="duration">Duration</label><input id="duration" name="duration" placeholder="e.g. 8 weeks, 20 hours"></div>
 <div class="field"><label for="learningOutcomes">What students will learn</label><textarea id="learningOutcomes" name="learningOutcomes" placeholder="Build responsive web apps
 Work with APIs and databases
