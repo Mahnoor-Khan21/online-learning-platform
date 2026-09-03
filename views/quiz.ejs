@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><%=quiz.name%> — LearnHub</title><link rel="stylesheet" href="/style.css"></head>
+<body class="app-body"><%- include('_navbar',{active:'courses',name,role}) %>
+<main class="page-content quiz-page"><a class="back-link" href="/courses/<%=course._id%>/learn">← Back to Learning</a>
+<div class="quiz-shell white-card"><div class="quiz-top"><div><span class="course-tag"><%=course.title%></span><h1><%=quiz.name%></h1></div><span id="quizCounter">Question 1 of <%=quiz.questions.length%></span></div>
+<form id="quizForm" action="/courses/<%=course._id%>/quiz/submit" method="POST"><input type="hidden" name="quizIndex" value="<%=quizIndex%>">
+<% quiz.questions.forEach((q,i)=>{ %><section class="quiz-question <%=i===0?'active':''%>" data-index="<%=i%>"><div class="quiz-question-number">Question <%=i+1%></div><h2><%=q.question%></h2><div class="quiz-options"><% q.options.forEach((option,j)=>{ %><label class="quiz-option"><input type="radio" name="answers" value="<%=j%>"><span><%=String.fromCharCode(65+j)%></span><b><%=option%></b></label><% }) %></div></section><% }) %>
+<div class="quiz-nav"><button type="button" class="btn btn-ghost" id="prevBtn">← Previous</button><button type="button" class="btn btn-blue" id="nextBtn">Next →</button><button type="submit" class="btn btn-blue" id="submitBtn" hidden>Submit Quiz ✓</button></div></form></div></main>
+<script>
+const qs=[...document.querySelectorAll('.quiz-question')], counter=document.getElementById('quizCounter'), prev=document.getElementById('prevBtn'), next=document.getElementById('nextBtn'), submit=document.getElementById('submitBtn'); let current=0;
+function show(i){current=i;qs.forEach((q,n)=>q.classList.toggle('active',n===i));counter.textContent=`Question ${i+1} of ${qs.length}`;prev.disabled=i===0;next.hidden=i===qs.length-1;submit.hidden=i!==qs.length-1;window.scrollTo({top:0,behavior:'smooth'});} prev.onclick=()=>current>0&&show(current-1);next.onclick=()=>current<qs.length-1&&show(current+1);show(0);
+document.getElementById('quizForm').addEventListener('submit',e=>{const missing=qs.findIndex(q=>!q.querySelector('input:checked'));if(missing!==-1){e.preventDefault();show(missing);alert('Please answer this question before submitting.');}});
+</script></body></html>

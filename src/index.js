@@ -10,9 +10,11 @@ const express    = require('express');
 const bcrypt     = require('bcrypt');
 const session    = require('express-session');
 const MongoStore = require('connect-mongo');
-const { User, Course, databaseConnection } = require('./config');
+const { User, Course, QuizAttempt, Certificate, Notification, databaseConnection } = require('./config');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('./email');
 const crypto = require('crypto');
+const multer = require('multer');
+const PDFDocument = require('pdfkit');
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/learning-platform';
 const SESSION_SECRET = process.env.SESSION_SECRET;
@@ -23,6 +25,33 @@ if (process.env.NODE_ENV === 'production' && !SESSION_SECRET) {
 
 // ── APP SETUP ────────────────────────────────────────────
 const app = express();
+
+// Profile-picture uploads are kept in memory and stored as a validated data URL
+// on the user document. This works on serverless deployments without relying on
+// an ephemeral local uploads directory.
+const profileUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 2 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!allowed.includes(file.mimetype)) {
+            return cb(new Error('Only JPG, PNG, WEBP, and GIF images are allowed.'));
+        }
+        cb(null, true);
+    }
+});
+
+// Convert upload errors into a normal profile-page message instead of a generic 500.
+function handleProfileUpload(req, res, next) {
+    profileUpload.single('profilePicture')(req, res, (err) => {
+        if (!err) return next();
+        const message = err.code === 'LIMIT_FILE_SIZE'
+            ? 'Profile picture must be 2 MB or smaller.'
+            : (err.message || 'Could not upload the profile picture.');
+        return res.redirect('/profile?error=' + encodeURIComponent(message));
+    });
+}
+
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 // Use absolute paths (based on this file's location) so static/view
@@ -52,6 +81,31 @@ app.use(session({
 }));
 
 app.set('view engine', 'ejs');
+
+// ── NOTIFICATIONS ────────────────────────────────────────
+async function createNotification(userId, type, title, message, link = '') {
+    if (!userId) return null;
+    try { return await Notification.create({ userId, type, title, message, link }); }
+    catch (err) { console.error('Notification create error:', err.message); return null; }
+}
+async function notifyUsers(userIds, type, title, message, link = '') {
+    const ids = [...new Set((userIds || []).map(id => String(id)).filter(Boolean))];
+    if (!ids.length) return;
+    try { await Notification.insertMany(ids.map(userId => ({ userId, type, title, message, link })), { ordered: false }); }
+    catch (err) { console.error('Notification bulk create error:', err.message); }
+}
+app.use(async (req, res, next) => {
+    res.locals.notificationUnreadCount = 0; res.locals.notificationItems = [];
+    if (!req.session.userId) return next();
+    try {
+        const [unread, items] = await Promise.all([
+            Notification.countDocuments({ userId: req.session.userId, readAt: null }),
+            Notification.find({ userId: req.session.userId }).sort({ createdAt: -1 }).limit(8).lean()
+        ]);
+        res.locals.notificationUnreadCount = unread; res.locals.notificationItems = items;
+    } catch (err) { console.error('Notification navbar error:', err.message); }
+    next();
+});
 
 // ─────────────────────────────────────────────────────────
 //  MIDDLEWARE HELPERS
@@ -476,13 +530,37 @@ app.get('/logout-confirm', requireLogin, (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────
+//  NOTIFICATIONS
+// ─────────────────────────────────────────────────────────
+app.get('/notifications', requireLogin, async (req, res) => {
+    try { const notifications = await Notification.find({ userId: req.session.userId }).sort({ createdAt: -1 }).limit(100).lean(); res.render('notifications', { name: req.session.userName, role: req.session.userRole, notifications }); }
+    catch (err) { console.error('Notifications page error:', err); res.redirect('/dashboard'); }
+});
+app.post('/notifications/:id/read', requireLogin, async (req, res) => {
+    try { await Notification.updateOne({ _id: req.params.id, userId: req.session.userId }, { $set: { readAt: new Date() } }); } catch (err) { console.error('Mark notification read error:', err); }
+    if (req.headers.accept && req.headers.accept.includes('application/json')) return res.json({ ok: true });
+    res.redirect(req.get('referer') || '/notifications');
+});
+app.post('/notifications/read-all', requireLogin, async (req, res) => {
+    try { await Notification.updateMany({ userId: req.session.userId, readAt: null }, { $set: { readAt: new Date() } }); } catch (err) { console.error('Mark all notifications read error:', err); }
+    if (req.headers.accept && req.headers.accept.includes('application/json')) return res.json({ ok: true });
+    res.redirect('/notifications');
+});
+app.post('/admin/announcements', requireLogin, requireRole('admin', 'teacher'), async (req, res) => {
+    const title = String(req.body.title || '').trim().slice(0, 160), message = String(req.body.message || '').trim().slice(0, 500), link = String(req.body.link || '/notifications').trim().slice(0, 300);
+    if (!title || !message) return res.status(400).send('Announcement title and message are required.');
+    try { const students = await User.find({ role: 'student' }).select('_id').lean(); await notifyUsers(students.map(s => s._id), 'announcement', title, message, link); res.redirect('/dashboard'); }
+    catch (err) { console.error('Announcement error:', err); res.status(500).send('Could not publish announcement.'); }
+});
+
+// ─────────────────────────────────────────────────────────
 //  DASHBOARD  (role-based)
 // ─────────────────────────────────────────────────────────
 
 app.get('/dashboard', requireLogin, async (req, res) => {
     try {
         const { userName, userRole, userId } = req.session;
-        let data = { name: userName, role: userRole };
+        let data = { name: userName, role: userRole, userId };
 
         if (userRole === 'admin') {
             data.totalUsers   = await User.countDocuments();
@@ -493,9 +571,54 @@ app.get('/dashboard', requireLogin, async (req, res) => {
             data.myCourses = await Course.find({ teacherId: userId }).lean();
 
         } else {
-            // student
-            data.enrolledCourses = await Course.find({ enrolledStudents: userId }).lean();
-            data.totalCourses    = await Course.countDocuments();
+            // student dashboard
+            const enrolled = await Course.find({ enrolledStudents: userId }).sort({ updatedAt: -1 }).lean();
+            const allCourses = await Course.find().sort({ createdAt: -1 }).lean();
+            const uid = userId.toString();
+
+            const withProgress = enrolled.map(c => {
+                const p = (c.progress || []).find(x => x.userId && x.userId.toString() === uid);
+                const total = (c.lessons || []).length;
+                const completed = p ? (p.completedLessons || []).length : 0;
+                const progressPercent = total ? Math.min(100, Math.round(completed / total * 100)) : 0;
+                const currentLesson = p && Number.isInteger(p.currentLesson) ? p.currentLesson : 0;
+                return {
+                    ...c,
+                    lessonCount: total,
+                    completedLessons: completed,
+                    progressPercent,
+                    currentLesson,
+                    currentLessonTitle: c.lessons?.[currentLesson]?.title || '',
+                    lastWatchedAt: p?.updatedAt || null,
+                    isCompleted: total > 0 && completed >= total
+                };
+            });
+
+            const completed = withProgress.filter(c => c.isCompleted);
+            const inProgress = withProgress.filter(c => !c.isCompleted && c.progressPercent > 0);
+            const recentlyWatched = withProgress
+                .filter(c => c.lastWatchedAt)
+                .sort((a,b) => new Date(b.lastWatchedAt) - new Date(a.lastWatchedAt))
+                .slice(0, 4);
+            const continueLearning = withProgress
+                .filter(c => !c.isCompleted)
+                .sort((a,b) => new Date(b.lastWatchedAt || 0) - new Date(a.lastWatchedAt || 0))[0] || null;
+            const recommended = allCourses
+                .filter(c => !(c.enrolledStudents || []).some(id => id.toString() === uid))
+                .slice(0, 4)
+                .map(c => ({ ...c, lessonCount: (c.lessons || []).length }));
+            const overallProgress = withProgress.length
+                ? Math.round(withProgress.reduce((sum, c) => sum + c.progressPercent, 0) / withProgress.length)
+                : 0;
+
+            data.enrolledCourses = withProgress;
+            data.completedCourses = completed.length;
+            data.inProgressCourses = inProgress.length;
+            data.overallProgress = overallProgress;
+            data.continueLearning = continueLearning;
+            data.recentlyWatched = recentlyWatched;
+            data.completedCourseList = completed;
+            data.recommendedCourses = recommended;
         }
 
         res.render('dashboard', data);
@@ -510,27 +633,156 @@ app.get('/dashboard', requireLogin, async (req, res) => {
 //  COURSES
 // ─────────────────────────────────────────────────────────
 
-// Browse all courses
+function normalizeList(value) {
+    if (Array.isArray(value)) return value.map(v => String(v).trim()).filter(Boolean);
+    return String(value || '').split(/\r?\n/).map(v => v.trim()).filter(Boolean);
+}
+
+function parseQuizzes(value) {
+    return normalizeList(value).map((line, index) => {
+        const parts = line.split('|').map(v => v.trim());
+        const options = parts.slice(1, 5).filter(Boolean);
+        const correctAnswer = Number(parts[5]);
+        if (!parts[0] || options.length !== 4 || !Number.isInteger(correctAnswer) || correctAnswer < 0 || correctAnswer > 3) return null;
+        return { question: parts[0], options, correctAnswer };
+    }).filter(Boolean);
+}
+
+function parseLessons(value) {
+    return normalizeList(value).map((line, index) => {
+        const parts = line.split('|').map(v => v.trim());
+        return {
+            title: parts[0] || `Lesson ${index + 1}`,
+            description: parts[1] || '',
+            duration: parts[2] || '10 min',
+            videoUrl: parts[3] || '',
+            content: parts.slice(4).join(' | ') || ''
+        };
+    });
+}
+
+// Browse and discover courses with search, filters, sorting, and pagination
 app.get('/courses', requireLogin, async (req, res) => {
     try {
         const { userId, userName, userRole } = req.session;
-        const courses = await Course.find().lean();
+        const search = String(req.query.search || '').trim();
+        const category = String(req.query.category || '').trim();
+        const level = String(req.query.level || '').trim();
+        const sort = ['newest', 'popular', 'rating'].includes(String(req.query.sort || 'newest')) ? String(req.query.sort || 'newest') : 'newest';
+        const requestedRating = Number(req.query.rating || 0);
+        const rating = [0, 1, 2, 3, 4, 4.5].includes(requestedRating) ? requestedRating : 0;
+        const requestedPage = Number.parseInt(req.query.page, 10);
+        const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+        const pageSize = 9;
 
-        // For each course, mark whether the logged-in student is enrolled
-        const coursesWithStatus = courses.map(c => ({
-            ...c,
-            isEnrolled: c.enrolledStudents.map(id => id.toString()).includes(userId.toString())
-        }));
+        const filter = {};
+        if (search) {
+            // Search course name, instructor, and topic-related text (description/category/lesson content).
+            filter.$or = [
+                { title: { $regex: search, $options: 'i' } },
+                { teacherName: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } },
+                { category: { $regex: search, $options: 'i' } },
+                { 'lessons.title': { $regex: search, $options: 'i' } },
+                { 'lessons.description': { $regex: search, $options: 'i' } },
+                { 'lessons.content': { $regex: search, $options: 'i' } }
+            ];
+        }
+        if (category) filter.category = category;
+        if (level) filter.level = level;
+        if (rating) filter.rating = { $gte: rating };
 
-        res.render('courses', { name: userName, role: userRole, courses: coursesWithStatus });
+        let sortSpec = { createdAt: -1 };
+        if (sort === 'popular') sortSpec = { enrolledStudentsCount: -1, createdAt: -1 };
+        if (sort === 'rating') sortSpec = { rating: -1, createdAt: -1 };
 
+        // Keep the enrolled-student count available for popular sorting without changing the Course schema.
+        const pipeline = [
+            { $match: filter },
+            { $addFields: { enrolledStudentsCount: { $size: { $ifNull: ['$enrolledStudents', []] } } } },
+            { $sort: sortSpec },
+            { $facet: {
+                items: [{ $skip: (page - 1) * pageSize }, { $limit: pageSize }],
+                total: [{ $count: 'count' }]
+            } }
+        ];
+        const [result] = await Course.aggregate(pipeline);
+        const totalCourses = result?.total?.[0]?.count || 0;
+        const totalPages = Math.max(1, Math.ceil(totalCourses / pageSize));
+        const safePage = Math.min(page, totalPages);
+        let courses = result?.items || [];
+
+        // If a requested page is past the last page, fetch the last page rather than showing an empty result.
+        if (page !== safePage && totalCourses > 0) {
+            const [lastPageResult] = await Course.aggregate([
+                { $match: filter },
+                { $addFields: { enrolledStudentsCount: { $size: { $ifNull: ['$enrolledStudents', []] } } } },
+                { $sort: sortSpec },
+                { $skip: (safePage - 1) * pageSize },
+                { $limit: pageSize }
+            ]);
+            courses = lastPageResult ? [lastPageResult] : [];
+        }
+
+        const categories = await Course.distinct('category');
+        const coursesWithStatus = courses.map(c => {
+            const enrollment = (c.enrolledStudents || []).map(id => id.toString()).includes(userId.toString());
+            const completed = (c.completedStudents || []).map(id => id.toString()).includes(userId.toString());
+            const progress = (c.progress || []).find(p => p.userId && p.userId.toString() === userId.toString());
+            const total = (c.lessons || []).length;
+            const done = progress ? (progress.completedLessons || []).length : (completed ? total : 0);
+            return {
+                ...c,
+                isEnrolled: enrollment,
+                isCompleted: completed,
+                progressPercent: total ? Math.round(done / total * 100) : (completed ? 100 : 0),
+                lessonCount: total,
+                enrolledCount: (c.enrolledStudents || []).length,
+                reviewCount: (c.reviews || []).length
+            };
+        });
+
+        const hasFilters = Boolean(search || category || level || rating || sort !== 'newest');
+        res.render('courses', {
+            name: userName,
+            role: userRole,
+            courses: coursesWithStatus,
+            search,
+            category,
+            level,
+            rating,
+            sort,
+            categories,
+            page: safePage,
+            pageSize,
+            totalCourses,
+            totalPages,
+            hasFilters
+        });
     } catch (err) {
         console.error('Courses error:', err);
         res.redirect('/dashboard');
     }
 });
 
-// Show add course form — MUST be before /courses/:id
+// Student's enrolled courses
+app.get('/my-courses', requireLogin, requireRole('student'), async (req, res) => {
+    try {
+        const courses = await Course.find({ enrolledStudents: req.session.userId }).sort({ updatedAt: -1 }).lean();
+        const data = courses.map(c => {
+            const p = (c.progress || []).find(x => x.userId && x.userId.toString() === req.session.userId.toString());
+            const total = (c.lessons || []).length;
+            const done = p ? (p.completedLessons || []).length : ((c.completedStudents || []).some(x => x.toString() === req.session.userId.toString()) ? total : 0);
+            return { ...c, progressPercent: total ? Math.round(done / total * 100) : 0, lessonCount: total, isCompleted: done === total && total > 0 };
+        });
+        res.render('my-courses', { name: req.session.userName, role: req.session.userRole, courses: data });
+    } catch (err) {
+        console.error('My courses error:', err);
+        res.redirect('/courses');
+    }
+});
+
+// Show add course form
 app.get('/courses/add', requireLogin, requireRole('teacher', 'admin'), (req, res) => {
     res.render('add-course', { name: req.session.userName, role: req.session.userRole });
 });
@@ -538,104 +790,297 @@ app.get('/courses/add', requireLogin, requireRole('teacher', 'admin'), (req, res
 // Handle add course form
 app.post('/courses/add', requireLogin, requireRole('teacher', 'admin'), async (req, res) => {
     try {
-        const { title, description, category, duration, level } = req.body;
-
-        if (!title || !description)
-            return res.render('add-course', {
-                name: req.session.userName,
-                role: req.session.userRole,
-                error: 'Title and description are required.'
-            });
-
-        await Course.create({
-            title,
-            description,
-            category:    category || 'General',
-            duration:    duration || '4 weeks',
-            level:       level    || 'Beginner',
-            teacherId:   req.session.userId,
-            teacherName: req.session.userName
+        const { title, description, category, duration, level, thumbnail, learningOutcomes, lessons, quizName, quizQuestions } = req.body;
+        if (!title || title.trim().length < 3 || !description || description.trim().length < 10) {
+            return res.render('add-course', { name: req.session.userName, role: req.session.userRole, error: 'Title must be at least 3 characters and description at least 10 characters.' });
+        }
+        const parsedLessons = parseLessons(lessons);
+        const newCourse = await Course.create({
+            title: title.trim(), description: description.trim(), thumbnail: String(thumbnail || '').trim(),
+            category: category || 'General', duration: duration || '4 weeks', level: level || 'Beginner',
+            learningOutcomes: normalizeList(learningOutcomes), lessons: parsedLessons, quizzes: quizQuestions ? [{ name: String(quizName || 'Course Quiz').trim() || 'Course Quiz', questions: parseQuizzes(quizQuestions) }] : [],
+            teacherId: req.session.userId, teacherName: req.session.userName
         });
-
+        const students = await User.find({ role: 'student' }).select('_id').lean();
+        await notifyUsers(students.map(s => s._id), 'course', 'New course available', `${newCourse.title} is now available on LearnHub.`, `/courses/${newCourse._id}`);
         res.redirect('/courses');
-
     } catch (err) {
         console.error('Add course error:', err);
-        res.render('add-course', {
-            name: req.session.userName,
-            role: req.session.userRole,
-            error: 'Could not create course. Please try again.'
-        });
+        res.render('add-course', { name: req.session.userName, role: req.session.userRole, error: 'Could not create course. Please try again.' });
     }
 });
 
-// View a single course — MUST be after /courses/add
+// Course details
 app.get('/courses/:id', requireLogin, async (req, res) => {
     try {
         const { userId, userName, userRole } = req.session;
-
         const course = await Course.findById(req.params.id).lean();
         if (!course) return res.redirect('/courses');
-
-        const isEnrolled = course.enrolledStudents
-            .map(id => id.toString())
-            .includes(userId.toString());
-
+        const isEnrolled = (course.enrolledStudents || []).some(id => id.toString() === userId.toString());
+        const isCompleted = (course.completedStudents || []).some(id => id.toString() === userId.toString());
         const isOwner = course.teacherId.toString() === userId.toString();
-
-        res.render('course-detail', { name: userName, role: userRole, course, isEnrolled, isOwner });
-
+        const progress = (course.progress || []).find(p => p.userId && p.userId.toString() === userId.toString());
+        const completedLessons = progress ? (progress.completedLessons || []) : [];
+        const lessonCount = (course.lessons || []).length;
+        const progressPercent = lessonCount ? Math.round(completedLessons.length / lessonCount * 100) : (isCompleted ? 100 : 0);
+        const instructor = await User.findById(course.teacherId).select('name bio profilePicture').lean();
+        const certificate = isEnrolled && userRole === 'student' ? await ensureCertificate(course, userId, userName) : null;
+        const certificateEligibility = isEnrolled && userRole === 'student' ? await getCertificateEligibility(course, userId) : null;
+        res.render('course-detail', { name: userName, role: userRole, userId, course, isEnrolled, isCompleted, isOwner, completedLessons, progressPercent, certificate, certificateEligibility, instructor: instructor || { name: course.teacherName, bio: '', profilePicture: null } });
     } catch (err) {
         console.error('Course detail error:', err);
         res.redirect('/courses');
     }
 });
 
-// Enroll in a course (students only)
+// Learning page
+app.get('/courses/:id/learn', requireLogin, requireRole('student'), async (req, res) => {
+    try {
+        const course = await Course.findById(req.params.id).lean();
+        if (!course) return res.redirect('/courses');
+        const isEnrolled = (course.enrolledStudents || []).some(id => id.toString() === req.session.userId.toString());
+        if (!isEnrolled) return res.redirect(`/courses/${req.params.id}`);
+        const p = (course.progress || []).find(x => x.userId && x.userId.toString() === req.session.userId.toString());
+        const completedLessons = p ? (p.completedLessons || []) : [];
+        const requestedLesson = Number.isInteger(Number(req.query.lesson)) ? Number(req.query.lesson) : null;
+        const lastLesson = p && Number.isInteger(p.currentLesson) ? p.currentLesson : 0;
+        const lessonIndex = course.lessons.length ? Math.max(0, Math.min(requestedLesson === null ? lastLesson : requestedLesson, course.lessons.length - 1)) : 0;
+        const currentLesson = course.lessons[lessonIndex] || null;
+        const progressPercent = course.lessons.length ? Math.round(completedLessons.length / course.lessons.length * 100) : 0;
+        // Remember the lesson the student is viewing so Continue Learning opens here next time.
+        if (p && requestedLesson !== null && requestedLesson !== p.currentLesson) {
+            await Course.updateOne({ _id: course._id, 'progress.userId': req.session.userId }, { $set: { 'progress.$.currentLesson': lessonIndex, 'progress.$.updatedAt': new Date() } });
+        } else if (!p && course.lessons.length) {
+            await Course.updateOne({ _id: course._id }, { $push: { progress: { userId: req.session.userId, completedLessons: [], currentLesson: lessonIndex, updatedAt: new Date() } } });
+        }
+        res.render('course-learn', { name: req.session.userName, role: req.session.userRole, course, completedLessons, progressPercent, lessonIndex, currentLesson });
+    } catch (err) { console.error('Learning page error:', err); res.redirect('/courses'); }
+});
+
+// Mark/unmark an individual lesson and update progress
+app.post('/courses/:id/lessons/:lessonIndex/toggle', requireLogin, requireRole('student'), async (req, res) => {
+    try {
+        const index = Number(req.params.lessonIndex);
+        const course = await Course.findById(req.params.id);
+        if (!course || !Number.isInteger(index) || index < 0 || index >= course.lessons.length) return res.redirect('/courses');
+        const enrolled = course.enrolledStudents.some(id => id.toString() === req.session.userId.toString());
+        if (!enrolled) return res.redirect(`/courses/${req.params.id}`);
+        let progress = course.progress.find(p => p.userId && p.userId.toString() === req.session.userId.toString());
+        if (!progress) { progress = { userId: req.session.userId, completedLessons: [], updatedAt: new Date() }; course.progress.push(progress); progress = course.progress[course.progress.length - 1]; }
+        const pos = progress.completedLessons.indexOf(index);
+        if (pos >= 0) progress.completedLessons.splice(pos, 1); else progress.completedLessons.push(index);
+        progress.currentLesson = index;
+        progress.updatedAt = new Date();
+        progress.completedLessons.sort((a,b) => a-b);
+        if (progress.completedLessons.length === course.lessons.length && course.lessons.length) course.completedStudents.addToSet(req.session.userId);
+        else course.completedStudents.pull(req.session.userId);
+        await course.save();
+        if (progress.completedLessons.length === course.lessons.length && course.lessons.length > 0 && !(await Notification.exists({ userId: req.session.userId, type: 'completion', link: `/courses/${course._id}` }))) {
+            await createNotification(req.session.userId, 'completion', 'Course completed', `Congratulations! You completed ${course.title}.`, `/courses/${course._id}`);
+        }
+        const certificate = await ensureCertificate(course.toObject(), req.session.userId, req.session.userName);
+        if (certificate && progress.completedLessons.length === course.lessons.length) return res.redirect(`/courses/${req.params.id}/certificate`);
+        res.redirect(`/courses/${req.params.id}/learn?lesson=${index}`);
+    } catch (err) { console.error('Lesson progress error:', err); res.redirect(`/courses/${req.params.id}/learn`); }
+});
+
+// Enroll
 app.post('/courses/:id/enroll', requireLogin, requireRole('student'), async (req, res) => {
-    try {
-        await Course.findByIdAndUpdate(req.params.id, {
-            $addToSet: { enrolledStudents: req.session.userId }
-        });
-        res.redirect(`/courses/${req.params.id}`);
-    } catch (err) {
-        console.error('Enroll error:', err);
-        res.redirect('/courses');
-    }
-});
-
-// Unenroll from a course (students only)
-app.post('/courses/:id/unenroll', requireLogin, requireRole('student'), async (req, res) => {
-    try {
-        await Course.findByIdAndUpdate(req.params.id, {
-            $pull: { enrolledStudents: req.session.userId }
-        });
-        res.redirect(`/courses/${req.params.id}`);
-    } catch (err) {
-        console.error('Unenroll error:', err);
-        res.redirect('/courses');
-    }
-});
-
-// Delete a course (teacher who owns it, or admin)
-app.post('/courses/:id/delete', requireLogin, requireRole('teacher', 'admin'), async (req, res) => {
     try {
         const course = await Course.findById(req.params.id);
         if (!course) return res.redirect('/courses');
+        const alreadyEnrolled = course.enrolledStudents.some(id => id.toString() === req.session.userId.toString());
+        if (!alreadyEnrolled) { course.enrolledStudents.addToSet(req.session.userId); await course.save(); await createNotification(req.session.userId, 'enrollment', 'Course enrollment confirmed', `You are now enrolled in ${course.title}.`, `/courses/${course._id}/learn`); }
+        res.redirect(`/courses/${course._id}`);
+    } catch (err) { console.error('Enroll error:', err); res.redirect('/courses'); }
+});
 
-        // Teachers can only delete their own courses
-        if (req.session.userRole === 'teacher' &&
-            course.teacherId.toString() !== req.session.userId.toString()) {
-            return res.redirect('/courses');
+// Leave course
+app.post('/courses/:id/unenroll', requireLogin, requireRole('student'), async (req, res) => {
+    try { await Course.findByIdAndUpdate(req.params.id, { $pull: { enrolledStudents: req.session.userId } }); res.redirect('/my-courses'); }
+    catch (err) { console.error('Unenroll error:', err); res.redirect('/courses'); }
+});
+
+// Create or update a review. One review per student per course is enforced server-side.
+app.post('/courses/:id/review', requireLogin, requireRole('student'), async (req, res) => {
+    try {
+        const rating = Number(req.body.rating);
+        const comment = String(req.body.comment || '').trim().slice(0, 500);
+        const course = await Course.findById(req.params.id);
+        const user = await User.findById(req.session.userId).select('name profilePicture').lean();
+        if (!course || !course.enrolledStudents.some(id => id.toString() === req.session.userId.toString()) || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+            return res.redirect(`/courses/${req.params.id}#reviews`);
         }
+        const existing = course.reviews.find(r => r.userId && r.userId.toString() === req.session.userId.toString());
+        if (existing) {
+            existing.rating = rating;
+            existing.comment = comment;
+            existing.userName = user?.name || req.session.userName;
+            existing.profilePicture = user?.profilePicture || '';
+            existing.createdAt = new Date();
+        } else {
+            course.reviews.push({ userId: req.session.userId, userName: user?.name || req.session.userName, profilePicture: user?.profilePicture || '', rating, comment });
+        }
+        course.rating = course.reviews.length ? Math.round((course.reviews.reduce((sum, r) => sum + r.rating, 0) / course.reviews.length) * 10) / 10 : 0;
+        await course.save();
+        res.redirect(`/courses/${req.params.id}#reviews`);
+    } catch (err) { console.error('Review error:', err); res.redirect(`/courses/${req.params.id}#reviews`); }
+});
 
-        await Course.findByIdAndDelete(req.params.id);
-        res.redirect('/courses');
+// Delete the current student's review.
+app.post('/courses/:id/review/delete', requireLogin, requireRole('student'), async (req, res) => {
+    try {
+        const course = await Course.findById(req.params.id);
+        if (!course) return res.redirect('/courses');
+        const before = course.reviews.length;
+        course.reviews = course.reviews.filter(r => !r.userId || r.userId.toString() !== req.session.userId.toString());
+        if (course.reviews.length !== before) {
+            course.rating = course.reviews.length ? Math.round((course.reviews.reduce((sum, r) => sum + r.rating, 0) / course.reviews.length) * 10) / 10 : 0;
+            await course.save();
+        }
+        res.redirect(`/courses/${req.params.id}#reviews`);
+    } catch (err) { console.error('Delete review error:', err); res.redirect(`/courses/${req.params.id}#reviews`); }
+});
 
-    } catch (err) {
-        console.error('Delete course error:', err);
-        res.redirect('/courses');
+// ─────────────────────────────────────────────────────────
+//  QUIZ SYSTEM
+// ─────────────────────────────────────────────────────────
+
+// ─── CERTIFICATE HELPERS ─────────────────────────────────
+const CERTIFICATE_PASS_PERCENT = 60;
+
+function makeCertificateId() {
+    return `LH-${new Date().getFullYear()}-${crypto.randomBytes(5).toString('hex').toUpperCase()}`;
+}
+
+async function getCertificateEligibility(course, userId) {
+    const uid = userId.toString();
+    const progress = (course.progress || []).find(p => p.userId && p.userId.toString() === uid);
+    const completedLessons = progress ? (progress.completedLessons || []) : [];
+    const allLessonsComplete = course.lessons.length > 0 && completedLessons.length >= course.lessons.length;
+    const quizzes = (course.quizzes || []).filter(q => q.questions && q.questions.length);
+
+    let passedQuiz = null;
+    if (quizzes.length) {
+        const attempts = await QuizAttempt.find({ userId, courseId: course._id, passed: true }).sort({ attemptedAt: -1 }).lean();
+        const passedNames = new Set(attempts.map(a => a.quizName));
+        const allRequiredQuizzesPassed = quizzes.every(q => passedNames.has(q.name || 'Course Quiz'));
+        if (allRequiredQuizzesPassed) passedQuiz = attempts[0] || null;
+        return { eligible: allLessonsComplete && allRequiredQuizzesPassed, allLessonsComplete, quizzesRequired: true, quizPassed: allRequiredQuizzesPassed, passedQuiz };
     }
+    return { eligible: false, allLessonsComplete, quizzesRequired: true, quizPassed: false, passedQuiz: null };
+}
+
+async function ensureCertificate(course, userId, studentName) {
+    const eligibility = await getCertificateEligibility(course, userId);
+    if (!eligibility.eligible) return null;
+    let certificate = await Certificate.findOne({ userId, courseId: course._id }).lean();
+    if (certificate) return certificate;
+    const instructor = await User.findById(course.teacherId).select('name').lean();
+    try {
+        certificate = await Certificate.create({
+            certificateId: makeCertificateId(),
+            userId, studentName, courseId: course._id, courseName: course.title,
+            instructorName: instructor?.name || course.teacherName || 'LearnHub Instructor',
+            platformName: 'LearnHub', completionDate: new Date()
+        });
+        await createNotification(userId, 'certificate', 'Certificate generated', `Your certificate for ${course.title} is ready to view and download.`, `/courses/${course._id}/certificate`);
+        return certificate.toObject();
+    } catch (err) {
+        if (err.code === 11000) return Certificate.findOne({ userId, courseId: course._id }).lean();
+        throw err;
+    }
+}
+
+app.get('/courses/:id/quiz', requireLogin, requireRole('student'), async (req, res) => {
+    try {
+        const course = await Course.findById(req.params.id).lean();
+        if (!course) return res.redirect('/courses');
+        const enrolled = (course.enrolledStudents || []).some(id => id.toString() === req.session.userId.toString());
+        if (!enrolled) return res.redirect(`/courses/${req.params.id}`);
+        const quizzes = (course.quizzes || []).filter(q => q.questions && q.questions.length);
+        if (!quizzes.length) return res.redirect(`/courses/${req.params.id}/learn`);
+        const quizIndex = Math.max(0, Math.min(Number(req.query.quiz) || 0, quizzes.length - 1));
+        const quiz = quizzes[quizIndex];
+        const safeQuiz = { _id: quiz._id, name: quiz.name, questions: quiz.questions.map(q => ({ _id: q._id, question: q.question, options: q.options })) };
+        res.render('quiz', { name: req.session.userName, role: req.session.userRole, course, quiz: safeQuiz, quizIndex });
+    } catch (err) { console.error('Quiz page error:', err); res.redirect('/courses'); }
+});
+
+app.post('/courses/:id/quiz/submit', requireLogin, requireRole('student'), async (req, res) => {
+    try {
+        const course = await Course.findById(req.params.id).lean();
+        if (!course) return res.redirect('/courses');
+        const enrolled = (course.enrolledStudents || []).some(id => id.toString() === req.session.userId.toString());
+        if (!enrolled) return res.redirect(`/courses/${req.params.id}`);
+        const quizIndex = Math.max(0, Math.min(Number(req.body.quizIndex) || 0, (course.quizzes || []).length - 1));
+        const quiz = course.quizzes?.[quizIndex];
+        if (!quiz || !quiz.questions?.length) return res.redirect(`/courses/${req.params.id}/learn`);
+        const answers = Array.isArray(req.body.answers) ? req.body.answers : Object.keys(req.body).filter(k => k.startsWith('answers[')).map(k => req.body[k]);
+        let correct = 0;
+        quiz.questions.forEach((q, i) => { if (Number(answers[i]) === q.correctAnswer) correct++; });
+        const total = quiz.questions.length;
+        const wrong = total - correct;
+        const percentage = Math.round((correct / total) * 100);
+        const passed = percentage >= 60;
+        const attempt = await QuizAttempt.create({ userId: req.session.userId, userName: req.session.userName, courseId: course._id, courseName: course.title, quizName: quiz.name || 'Course Quiz', totalQuestions: total, correctAnswers: correct, wrongAnswers: wrong, score: correct, percentage, passed });
+        await createNotification(req.session.userId, 'quiz', 'Quiz result available', `You scored ${correct}/${total} (${percentage}%) on ${quiz.name || 'Course Quiz'} — ${passed ? 'PASSED' : 'FAILED'}.`, `/courses/${course._id}/quiz`);
+        const certificate = passed ? await ensureCertificate(course, req.session.userId, req.session.userName) : null;
+        res.render('quiz-result', { name: req.session.userName, role: req.session.userRole, course, quiz, certificate, result: { totalQuestions: total, correctAnswers: correct, wrongAnswers: wrong, score: correct, percentage, passed, attemptId: attempt._id } });
+    } catch (err) { console.error('Quiz submit error:', err); res.redirect(`/courses/${req.params.id}/quiz`); }
+});
+
+// Certificate: view and print-friendly PDF download.
+app.get('/courses/:id/certificate', requireLogin, requireRole('student'), async (req, res) => {
+    try {
+        const course = await Course.findById(req.params.id).lean();
+        if (!course || !(course.enrolledStudents || []).some(id => id.toString() === req.session.userId.toString())) return res.redirect('/courses');
+        const certificate = await ensureCertificate(course, req.session.userId, req.session.userName);
+        if (!certificate) return res.redirect(`/courses/${req.params.id}/learn?certificate=locked`);
+        res.render('certificate', { name: req.session.userName, role: req.session.userRole, certificate, course });
+    } catch (err) { console.error('Certificate view error:', err); res.redirect(`/courses/${req.params.id}`); }
+});
+
+app.get('/certificates/:certificateId/download', requireLogin, requireRole('student'), async (req, res) => {
+    try {
+        const certificate = await Certificate.findOne({ certificateId: req.params.certificateId, userId: req.session.userId }).lean();
+        if (!certificate) return res.status(404).send('Certificate not found.');
+        const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 0 });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${certificate.certificateId}.pdf"`);
+        doc.pipe(res);
+        const W = doc.page.width, H = doc.page.height;
+        doc.rect(0, 0, W, H).fill('#f8fafc');
+        doc.lineWidth(3).strokeColor('#1e3a8a').rect(28, 28, W - 56, H - 56).stroke();
+        doc.lineWidth(1).strokeColor('#cbd5e1').rect(42, 42, W - 84, H - 84).stroke();
+        doc.fillColor('#1e3a8a').fontSize(32).font('Helvetica-Bold').text('LearnHub', 0, 75, { align: 'center' });
+        doc.fillColor('#111827').fontSize(30).font('Helvetica-Bold').text('CERTIFICATE OF COMPLETION', 0, 130, { align: 'center' });
+        doc.fillColor('#6b7280').fontSize(14).font('Helvetica').text('This certificate is proudly presented to', 0, 190, { align: 'center' });
+        doc.fillColor('#111827').fontSize(34).font('Helvetica-Bold').text(certificate.studentName, 70, 220, { width: W - 140, align: 'center' });
+        doc.moveTo(210, 267).lineTo(W - 210, 267).lineWidth(1).strokeColor('#94a3b8').stroke();
+        doc.fillColor('#6b7280').fontSize(14).font('Helvetica').text('For successfully completing', 0, 286, { align: 'center' });
+        doc.fillColor('#1e3a8a').fontSize(26).font('Helvetica-Bold').text(certificate.courseName, 70, 315, { width: W - 140, align: 'center' });
+        doc.fillColor('#374151').fontSize(12).font('Helvetica').text(`Instructor: ${certificate.instructorName}`, 80, 390, { width: W - 160, align: 'center' });
+        doc.text(`Completion Date: ${new Date(certificate.completionDate).toLocaleDateString()}`, 80, 412, { width: W - 160, align: 'center' });
+        doc.fillColor('#64748b').fontSize(10).text(`Certificate ID: ${certificate.certificateId}  •  ${certificate.platformName}`, 80, H - 72, { width: W - 160, align: 'center' });
+        doc.end();
+    } catch (err) { console.error('Certificate PDF error:', err); res.status(500).send('Could not generate certificate PDF.'); }
+});
+
+app.get('/quiz-history', requireLogin, requireRole('student'), async (req, res) => {
+    try {
+        const attempts = await QuizAttempt.find({ userId: req.session.userId }).sort({ attemptedAt: -1 }).lean();
+        res.render('quiz-history', { name: req.session.userName, role: req.session.userRole, attempts });
+    } catch (err) { console.error('Quiz history error:', err); res.redirect('/dashboard'); }
+});
+
+// Delete a course
+app.post('/courses/:id/delete', requireLogin, requireRole('teacher', 'admin'), async (req, res) => {
+    try {
+        const course = await Course.findById(req.params.id); if (!course) return res.redirect('/courses');
+        if (req.session.userRole === 'teacher' && course.teacherId.toString() !== req.session.userId.toString()) return res.redirect('/courses');
+        await Course.findByIdAndDelete(req.params.id); res.redirect('/courses');
+    } catch (err) { console.error('Delete course error:', err); res.redirect('/courses'); }
 });
 
 // ─────────────────────────────────────────────────────────
@@ -644,39 +1089,129 @@ app.post('/courses/:id/delete', requireLogin, requireRole('teacher', 'admin'), a
 
 app.get('/profile', requireLogin, async (req, res) => {
     try {
-        // Get fresh user data (exclude password field)
+        // Get fresh user data and never expose the password to the template.
         const user = await User.findById(req.session.userId, { password: 0 }).lean();
-        res.render('profile', { name: req.session.userName, role: req.session.userRole, user });
+        if (!user) return res.redirect('/login');
+
+        res.render('profile', {
+            name: req.session.userName,
+            role: req.session.userRole,
+            user,
+            error: req.query.error || null,
+            success: req.query.success || null
+        });
     } catch (err) {
         console.error('Profile error:', err);
         res.redirect('/dashboard');
     }
 });
 
-app.post('/profile/update', requireLogin, async (req, res) => {
+// Update profile details and optional profile picture.
+app.post('/profile/update', requireLogin, handleProfileUpload, async (req, res) => {
     try {
-        const { name } = req.body;
-        if (!name || !name.trim()) return res.redirect('/profile');
+        await databaseConnection;
 
-        // Check if name is taken by another user
-        const existing = await User.findOne({ name: name.trim(), _id: { $ne: req.session.userId } });
-        if (existing) {
-            const user = await User.findById(req.session.userId, { password: 0 }).lean();
-            return res.render('profile', {
-                name: req.session.userName,
-                role: req.session.userRole,
-                user,
-                error: 'That username is already taken.'
-            });
+        const name = String(req.body.name || '').trim();
+        const bio = String(req.body.bio || '').trim();
+
+        if (!name) {
+            return res.redirect('/profile?error=' + encodeURIComponent('Name is required.'));
+        }
+        if (name.length < 2 || name.length > 50) {
+            return res.redirect('/profile?error=' + encodeURIComponent('Name must be between 2 and 50 characters.'));
+        }
+        if (bio.length > 500) {
+            return res.redirect('/profile?error=' + encodeURIComponent('Bio must be 500 characters or less.'));
         }
 
-        await User.findByIdAndUpdate(req.session.userId, { name: name.trim() });
-        req.session.userName = name.trim();
-        res.redirect('/profile');
+        const existing = await User.findOne({
+            name: name,
+            _id: { $ne: req.session.userId }
+        });
 
+        if (existing) {
+            return res.redirect('/profile?error=' + encodeURIComponent('That username is already taken.'));
+        }
+
+        const update = { name, bio };
+
+        if (req.file) {
+            // multer has already checked the size and MIME type.
+            const supportedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+            if (!supportedTypes.includes(req.file.mimetype)) {
+                return res.redirect('/profile?error=' + encodeURIComponent('Unsupported image format.'));
+            }
+            update.profilePicture =
+                `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+        }
+
+        await User.findByIdAndUpdate(req.session.userId, update);
+        req.session.userName = name;
+
+        return res.redirect('/profile?success=' + encodeURIComponent('Your profile has been updated successfully.'));
     } catch (err) {
         console.error('Profile update error:', err);
-        res.redirect('/profile');
+        const message = err.code === 'LIMIT_FILE_SIZE'
+            ? 'Profile picture must be 2 MB or smaller.'
+            : (err.message || 'Could not update your profile. Please try again.');
+        res.redirect('/profile?error=' + encodeURIComponent(message));
+    }
+});
+
+// Remove the current profile picture and return to the profile page.
+app.post('/profile/remove-picture', requireLogin, async (req, res) => {
+    try {
+        await databaseConnection;
+        await User.findByIdAndUpdate(req.session.userId, { profilePicture: null });
+        res.redirect('/profile?success=' + encodeURIComponent('Profile picture removed.'));
+    } catch (err) {
+        console.error('Remove profile picture error:', err);
+        res.redirect('/profile?error=' + encodeURIComponent('Could not remove the profile picture.'));
+    }
+});
+
+// Change password from the authenticated profile page.
+app.post('/profile/change-password', requireLogin, async (req, res) => {
+    try {
+        await databaseConnection;
+
+        const currentPassword = String(req.body.currentPassword || '');
+        const newPassword = String(req.body.newPassword || '');
+        const confirmPassword = String(req.body.confirmPassword || '');
+
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            return res.redirect('/profile?error=' + encodeURIComponent('Please fill in all password fields.'));
+        }
+
+        if (newPassword.length < 6) {
+            return res.redirect('/profile?error=' + encodeURIComponent('New password must be at least 6 characters long.'));
+        }
+
+        if (newPassword !== confirmPassword) {
+            return res.redirect('/profile?error=' + encodeURIComponent('New passwords do not match.'));
+        }
+
+        if (currentPassword === newPassword) {
+            return res.redirect('/profile?error=' + encodeURIComponent('New password must be different from your current password.'));
+        }
+
+        const user = await User.findById(req.session.userId);
+        if (!user) return res.redirect('/login');
+
+        const valid = await bcrypt.compare(currentPassword, user.password);
+        if (!valid) {
+            return res.redirect('/profile?error=' + encodeURIComponent('Current password is incorrect.'));
+        }
+
+        user.password = await bcrypt.hash(newPassword, 10);
+        user.resetPasswordToken = null;
+        user.resetPasswordTokenExpires = null;
+        await user.save();
+
+        res.redirect('/profile?success=' + encodeURIComponent('Password changed successfully.'));
+    } catch (err) {
+        console.error('Change password error:', err);
+        res.redirect('/profile?error=' + encodeURIComponent('Could not change your password. Please try again.'));
     }
 });
 

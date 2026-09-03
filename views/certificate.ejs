@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Certificate — <%= certificate.courseName %></title><link rel="stylesheet" href="/style.css"></head>
+<body class="app-body"><%- include('_navbar',{active:'courses',name,role}) %>
+<main class="page-content certificate-page">
+  <div class="certificate-actions"><a href="/courses/<%=course._id%>" class="btn btn-ghost">← Course</a><a href="/certificates/<%=certificate.certificateId%>/download" class="btn btn-blue">⬇ Download PDF</a><button class="btn btn-ghost" onclick="window.print()">🖨 Print</button></div>
+  <article class="certificate-paper">
+    <div class="certificate-border certificate-border-outer"></div><div class="certificate-border certificate-border-inner"></div>
+    <div class="certificate-content">
+      <div class="certificate-brand">LearnHub</div><div class="certificate-label">CERTIFICATE OF COMPLETION</div>
+      <p class="certificate-presented">This certificate is proudly presented to</p>
+      <h1><%=certificate.studentName%></h1><div class="certificate-rule"></div>
+      <p class="certificate-presented">For successfully completing</p><h2><%=certificate.courseName%></h2>
+      <div class="certificate-meta"><span><strong>Instructor</strong><%=certificate.instructorName%></span><span><strong>Completion Date</strong><%=new Date(certificate.completionDate).toLocaleDateString()%></span></div>
+      <div class="certificate-footer"><span>Certificate ID: <strong><%=certificate.certificateId%></strong></span><span><%=certificate.platformName%></span></div>
+    </div>
+  </article>
+</main></body></html>

@@ -58,6 +58,16 @@
                 <a href="/courses/add" class="btn btn-green">➕ Add Course</a>
             </div>
 
+            <div class="white-card announcement-card" style="margin-bottom:28px;">
+                <div class="page-header" style="margin-bottom:12px;"><div><h3 style="font-size:1rem;font-weight:700;">📢 Important Announcement</h3><p class="muted">Broadcast an announcement to all students.</p></div></div>
+                <form action="/admin/announcements" method="POST" class="announcement-form">
+                    <input class="form-input" name="title" maxlength="160" required placeholder="Announcement title">
+                    <textarea class="form-input" name="message" maxlength="500" required rows="3" placeholder="Write the announcement..."></textarea>
+                    <input class="form-input" name="link" maxlength="300" placeholder="Optional link (e.g. /courses)">
+                    <button class="btn btn-blue">📢 Send to Students</button>
+                </form>
+            </div>
+
             <!-- Recent users table -->
             <div class="white-card">
                 <div class="page-header" style="margin-bottom:16px;">
@@ -121,6 +131,10 @@
                 <h3 class="page-title" style="font-size:1.15rem;">My Courses</h3>
                 <a href="/courses/add" class="btn btn-blue">➕ Add Course</a>
             </div>
+            <div class="white-card announcement-card" style="margin-bottom:24px;">
+                <div class="page-header" style="margin-bottom:12px;"><div><h3 style="font-size:1rem;font-weight:700;">📢 Important Announcement</h3><p class="muted">Share an update with all students.</p></div></div>
+                <form action="/admin/announcements" method="POST" class="announcement-form"><input class="form-input" name="title" maxlength="160" required placeholder="Announcement title"><textarea class="form-input" name="message" maxlength="500" required rows="2" placeholder="Write the announcement..."></textarea><input class="form-input" name="link" maxlength="300" placeholder="Optional link"><button class="btn btn-blue">📢 Send to Students</button></form>
+            </div>
 
             <% if (myCourses.length === 0) { %>
                 <div class="white-card" style="text-align:center; padding:48px 24px;">
@@ -155,57 +169,68 @@
         <!-- STUDENT DASHBOARD -->
         <% } else { %>
 
-            <!-- Stat card -->
-            <div class="stats-grid" style="margin-bottom:24px;">
-                <div class="stat-card">
-                    <div class="stat-icon">🎓</div>
+            <div class="student-dashboard">
+                <div class="dashboard-hero">
                     <div>
-                        <div class="stat-value"><%= enrolledCourses.length %></div>
-                        <div class="stat-label">Enrolled Courses</div>
+                        <span class="eyebrow">LEARNING DASHBOARD</span>
+                        <h1>Welcome back, <%= name %> 👋</h1>
+                        <p>Pick up where you left off or discover your next course.</p>
                     </div>
+                    <a href="/courses" class="btn btn-blue">Browse Courses</a>
                 </div>
-                <div class="stat-card green">
-                    <div class="stat-icon">📚</div>
-                    <div>
-                        <div class="stat-value"><%= totalCourses %></div>
-                        <div class="stat-label">Available Courses</div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Enrolled courses -->
-            <div class="page-header">
-                <h3 class="page-title" style="font-size:1.15rem;">My Enrolled Courses</h3>
-                <a href="/courses" class="btn btn-blue">Browse All Courses</a>
-            </div>
-
-            <% if (enrolledCourses.length === 0) { %>
-                <div class="white-card" style="text-align:center; padding:48px 24px;">
-                    <div style="font-size:3rem; margin-bottom:12px;">📖</div>
-                    <p style="color: #6b7280;">You haven't enrolled in any courses yet.</p>
-                    <a href="/courses" class="btn btn-blue" style="margin-top:16px; display:inline-flex;">Browse Courses</a>
+                <div class="student-stat-grid">
+                    <div class="student-stat-card"><span class="student-stat-icon">🎓</span><div><strong><%= enrolledCourses.length %></strong><span>Total Enrolled Courses</span></div></div>
+                    <div class="student-stat-card"><span class="student-stat-icon">🏆</span><div><strong><%= completedCourses %></strong><span>Completed Courses</span></div></div>
+                    <div class="student-stat-card"><span class="student-stat-icon">📖</span><div><strong><%= inProgressCourses %></strong><span>Courses In Progress</span></div></div>
+                    <div class="student-stat-card"><span class="student-stat-icon">📈</span><div><strong><%= overallProgress %>%</strong><span>Overall Learning Progress</span></div></div>
                 </div>
-            <% } else { %>
-                <div class="course-grid">
-                    <% enrolledCourses.forEach(c => { %>
-                    <div class="course-card">
-                        <div class="course-card-top"></div>
-                        <div class="course-card-body">
-                            <span class="course-tag"><%= c.category %></span>
-                            <h3><%= c.title %></h3>
-                            <p><%= c.description %></p>
-                            <div class="course-meta">
-                                <span>👩‍🏫 <%= c.teacherName %></span>
-                                <span>🕐 <%= c.duration %></span>
+
+                <div class="student-section continue-section">
+                    <div class="section-heading"><div><h2>Continue Learning</h2><p>Jump straight back into your latest lesson.</p></div></div>
+                    <% if (continueLearning) { %>
+                        <div class="continue-card">
+                            <div class="continue-thumb" style="background-image:url('<%= continueLearning.thumbnail || '' %>');"><span>▶</span></div>
+                            <div class="continue-info">
+                                <span class="course-tag"><%= continueLearning.category %></span>
+                                <h3><%= continueLearning.title %></h3>
+                                <p><%= continueLearning.currentLessonTitle ? 'Lesson: ' + continueLearning.currentLessonTitle : 'Start your first lesson' %></p>
+                                <div class="progress-wrap"><div><span>Course Progress</span><strong><%= continueLearning.progressPercent %>%</strong></div><div class="progress-bar"><i style="width:<%= continueLearning.progressPercent %>%"></i></div></div>
+                                <a href="/courses/<%= continueLearning._id %>/learn?lesson=<%= continueLearning.currentLesson || 0 %>" class="btn btn-blue">Continue Learning →</a>
                             </div>
                         </div>
-                        <div class="course-card-actions">
-                            <a href="/courses/<%= c._id %>" class="btn btn-ghost btn-sm">View Course</a>
-                        </div>
-                    </div>
-                    <% }) %>
+                    <% } else { %>
+                        <div class="empty-dashboard-card"><span>🚀</span><h3>Ready to start learning?</h3><p>Enroll in a course and your progress will appear here.</p><a href="/courses" class="btn btn-blue">Explore Courses</a></div>
+                    <% } %>
                 </div>
-            <% } %>
+
+                <div class="student-section">
+                    <div class="section-heading"><div><h2>My Courses</h2><p>Track your learning progress.</p></div><a href="/my-courses" class="btn btn-ghost btn-sm">View All</a></div>
+                    <% if (enrolledCourses.length) { %><div class="course-grid student-course-grid">
+                        <% enrolledCourses.slice(0, 6).forEach(c => { %>
+                        <div class="course-card dashboard-course-card">
+                            <div class="course-card-top" style="background-image:url('<%= c.thumbnail || '' %>');"></div>
+                            <div class="course-card-body"><span class="course-tag"><%= c.category %></span><h3><%= c.title %></h3><p><%= c.teacherName %></p>
+                                <div class="progress-wrap"><div><span>Course Progress</span><strong><%= c.progressPercent %>%</strong></div><div class="progress-bar"><i style="width:<%= c.progressPercent %>%"></i></div></div>
+                            </div><div class="course-card-actions"><a href="/courses/<%= c._id %>/learn?lesson=<%= c.currentLesson || 0 %>" class="btn btn-blue btn-sm"><%= c.progressPercent ? 'Continue' : 'Start Learning' %></a></div>
+                        </div><% }) %>
+                    </div><% } else { %><div class="empty-dashboard-card"><span>📚</span><p>No courses enrolled yet.</p><a href="/courses" class="btn btn-blue">Browse Courses</a></div><% } %>
+                </div>
+
+                <div class="dashboard-two-col">
+                    <div class="student-section"><div class="section-heading"><div><h2>Recently Watched</h2><p>Your latest learning activity.</p></div></div>
+                        <% if (recentlyWatched.length) { %><div class="mini-course-list"><% recentlyWatched.forEach(c => { %><a class="mini-course" href="/courses/<%= c._id %>/learn?lesson=<%= c.currentLesson || 0 %>"><div class="mini-thumb" style="background-image:url('<%= c.thumbnail || '' %>');">▶</div><div><strong><%= c.title %></strong><span><%= c.currentLessonTitle || 'Course' %></span><div class="progress-bar"><i style="width:<%= c.progressPercent %>%"></i></div></div><b><%= c.progressPercent %>%</b></a><% }) %></div><% } else { %><div class="empty-small">No recent lessons yet.</div><% } %>
+                    </div>
+                    <div class="student-section"><div class="section-heading"><div><h2>Completed Courses</h2><p>Courses you've finished.</p></div></div>
+                        <% if (completedCourseList.length) { %><div class="mini-course-list"><% completedCourseList.slice(0,4).forEach(c => { %><a class="mini-course" href="/courses/<%= c._id %>"><div class="mini-thumb" style="background-image:url('<%= c.thumbnail || '' %>');">✓</div><div><strong><%= c.title %></strong><span><%= c.lessonCount %> lessons completed</span><div class="progress-bar"><i style="width:100%"></i></div></div><b>100%</b></a><% }) %></div><% } else { %><div class="empty-small">No completed courses yet. Keep going!</div><% } %>
+                    </div>
+                </div>
+
+                <div class="student-section"><div class="section-heading"><div><h2>Recommended Courses</h2><p>Explore courses you haven't enrolled in yet.</p></div></div>
+                    <% if (recommendedCourses.length) { %><div class="course-grid student-course-grid"><% recommendedCourses.forEach(c => { %><div class="course-card dashboard-course-card"><div class="course-card-top" style="background-image:url('<%= c.thumbnail || '' %>');"></div><div class="course-card-body"><span class="course-tag"><%= c.category %></span><h3><%= c.title %></h3><p><%= c.teacherName %></p><div class="course-meta"><span>📚 <%= c.lessonCount %> lessons</span><span>📊 <%= c.level %></span></div></div><div class="course-card-actions"><a href="/courses/<%= c._id %>" class="btn btn-ghost btn-sm">View Course</a></div></div><% }) %></div><% } else { %><div class="empty-dashboard-card"><span>✨</span><p>You're enrolled in every available course.</p></div><% } %>
+                </div>
+            </div>
+
 
         <% } %>
 

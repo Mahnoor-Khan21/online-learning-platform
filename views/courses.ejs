@@ -1,95 +1,28 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Courses — LearnHub</title>
-    <link rel="stylesheet" href="/style.css">
-</head>
-<body class="app-body">
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Courses — LearnHub</title><link rel="stylesheet" href="/style.css"></head>
+<body class="app-body"><%- include('_navbar',{active:'courses',name,role}) %><main class="page-content">
+<div class="page-header"><div><h1 class="page-title">Explore Courses</h1><p class="page-subtitle">Find the right course by name, instructor, topic, level, rating, or popularity.</p></div><div class="button-row"><% if(role==='student'){ %><a href="/my-courses" class="btn btn-ghost">📚 My Courses</a><% } %><% if(role==='teacher'||role==='admin'){ %><a href="/courses/add" class="btn btn-blue">➕ Add Course</a><% } %></div></div>
 
-    <%- include('_navbar', { active: 'courses', name, role }) %>
+<form method="GET" action="/courses" class="white-card course-filters course-discovery-form">
+    <div class="field search-field"><label for="search">Search courses</label><input id="search" name="search" value="<%= search %>" placeholder="Course name, instructor, or topic..." autocomplete="off"></div>
+    <div class="field"><label for="category">Category</label><select id="category" name="category"><option value="">All categories</option><% categories.forEach(x=>{ %><option value="<%=x%>" <%=category===x?'selected':''%>><%=x%></option><% }) %></select></div>
+    <div class="field"><label for="level">Difficulty</label><select id="level" name="level"><option value="">All levels</option><% ['Beginner','Intermediate','Advanced'].forEach(x=>{ %><option value="<%=x%>" <%=level===x?'selected':''%>><%=x%></option><% }) %></select></div>
+    <div class="field"><label for="rating">Minimum rating</label><select id="rating" name="rating"><option value="0" <%=rating===0?'selected':''%>>Any rating</option><option value="4.5" <%=rating===4.5?'selected':''%>>⭐ 4.5+</option><option value="4" <%=rating===4?'selected':''%>>⭐ 4.0+</option><option value="3" <%=rating===3?'selected':''%>>⭐ 3.0+</option><option value="2" <%=rating===2?'selected':''%>>⭐ 2.0+</option><option value="1" <%=rating===1?'selected':''%>>⭐ 1.0+</option></select></div>
+    <div class="field"><label for="sort">Sort by</label><select id="sort" name="sort"><option value="newest" <%=sort==='newest'?'selected':''%>>🆕 Newest courses</option><option value="popular" <%=sort==='popular'?'selected':''%>>🔥 Popular courses</option><option value="rating" <%=sort==='rating'?'selected':''%>>⭐ Highest rated</option></select></div>
+    <div class="filter-actions"><button class="btn btn-blue" type="submit">🔎 Search &amp; Filter</button><a class="btn btn-ghost" href="/courses">Clear Filters</a></div>
+</form>
 
-    <div class="page-content">
+<div class="course-results-bar"><strong><%= totalCourses %></strong> course<%=totalCourses===1?'':'s'%> found<% if(search){ %> for <span>“<%=search%>”</span><% } %><% if(hasFilters){ %><small> • Page <%=page%> of <%=totalPages%></small><% } %></div>
 
-        <div class="page-header">
-            <div>
-                <h1 class="page-title">All Courses</h1>
-                <p class="page-subtitle"><%= courses.length %> course<%= courses.length !== 1 ? 's' : '' %> available</p>
-            </div>
-            <!-- Teachers and Admins see the "Add Course" button -->
-            <% if (role === 'teacher' || role === 'admin') { %>
-                <a href="/courses/add" class="btn btn-blue">➕ Add Course</a>
-            <% } %>
-        </div>
+<% if(!courses.length){ %>
+<div class="white-card empty-state course-no-results"><div>🔎</div><h2>No courses found</h2><p>We couldn't find courses matching your search and filters. Try a different keyword or clear the filters.</p><a class="btn btn-blue" href="/courses">Clear Filters</a></div>
+<% } else { %>
+<div class="course-grid"><% courses.forEach(c=>{ %><article class="course-card"><div class="course-thumb"><% if(c.thumbnail){ %><img src="<%=c.thumbnail%>" alt="<%=c.title%> thumbnail"><% } else { %><span>🎓</span><% } %></div><div class="course-card-body"><div class="course-topline"><span class="course-tag"><%=c.category%></span><span class="course-level"><%=c.level%></span></div><h3><%=c.title%></h3><p><%=c.description%></p><div class="course-instructor">👩‍🏫 <%=c.teacherName%></div><div class="course-meta"><span>⭐ <%=Number(c.rating||0).toFixed(1)%>/5</span><span>💬 <%=c.reviewCount%> reviews</span><span>📖 <%=c.lessonCount%> lessons</span><span>👨‍🎓 <%=c.enrolledCount%></span></div><% if(role==='student'&&c.isEnrolled){ %><div class="progress-wrap"><div><span>Progress</span><strong><%=c.progressPercent%>%</strong></div><div class="progress-bar"><i style="width:<%=c.progressPercent%>%"></i></div></div><span class="badge <%=c.isCompleted?'badge-success':'badge-blue'%>"><%=c.isCompleted?'✓ Completed':'✓ Enrolled'%></span><% } %></div><div class="course-card-actions"><a href="/courses/<%=c._id%>" class="btn btn-blue btn-full"><%=role==='student'&&c.isEnrolled?'Continue Learning':'View Course'%> →</a></div></article><% }) %></div>
 
-        <!-- If no courses exist yet -->
-        <% if (courses.length === 0) { %>
-            <div class="white-card" style="text-align:center; padding:64px 24px;">
-                <div style="font-size:3.5rem; margin-bottom:16px;">📭</div>
-                <h3 style="margin-bottom:8px;">No courses yet</h3>
-                <p style="color:#6b7280;">
-                    <% if (role === 'teacher' || role === 'admin') { %>
-                        Be the first to create a course!
-                    <% } else { %>
-                        Check back soon — teachers are creating courses for you.
-                    <% } %>
-                </p>
-                <% if (role === 'teacher' || role === 'admin') { %>
-                    <a href="/courses/add" class="btn btn-blue" style="margin-top:20px; display:inline-flex;">Create First Course</a>
-                <% } %>
-            </div>
-
-        <% } else { %>
-
-            <!-- Grid of course cards -->
-            <div class="course-grid">
-                <% courses.forEach(c => { %>
-
-                <div class="course-card">
-                    <div class="course-card-top"></div>
-                    <div class="course-card-body">
-
-                        <!-- Category tag -->
-                        <span class="course-tag"><%= c.category %></span>
-
-                        <!-- Course title -->
-                        <h3><%= c.title %></h3>
-
-                        <!-- Description (trimmed to 2 lines via CSS) -->
-                        <p><%= c.description %></p>
-
-                        <!-- Meta info -->
-                        <div class="course-meta">
-                            <span>👩‍🏫 <%= c.teacherName %></span>
-                            <span>🕐 <%= c.duration %></span>
-                            <span>📊 <%= c.level %></span>
-                        </div>
-
-                        <!-- Enrolled count -->
-                        <div class="enrolled-count">
-                            👨‍🎓 <%= c.enrolledStudents.length %> student<%= c.enrolledStudents.length !== 1 ? 's' : '' %> enrolled
-                        </div>
-
-                        <!-- Enrolled badge for students -->
-                        <% if (role === 'student' && c.isEnrolled) { %>
-                            <span class="badge badge-blue" style="margin-bottom:12px;">✓ Enrolled</span>
-                        <% } %>
-
-                    </div>
-
-                    <!-- View button -->
-                    <div class="course-card-actions">
-                        <a href="/courses/<%= c._id %>" class="btn btn-ghost btn-sm">View Details →</a>
-                    </div>
-                </div>
-
-                <% }) %>
-            </div>
-
-        <% } %>
-
-    </div>
-
-</body>
-</html>
+<% if(totalPages>1){ %><nav class="course-pagination" aria-label="Course pages">
+    <% const queryBase = `&search=${encodeURIComponent(search)}&category=${encodeURIComponent(category)}&level=${encodeURIComponent(level)}&rating=${encodeURIComponent(rating)}&sort=${encodeURIComponent(sort)}`; %>
+    <% if(page>1){ %><a class="pagination-btn" href="/courses?page=<%=page-1%><%=queryBase%>">← Previous</a><% } else { %><span class="pagination-btn disabled">← Previous</span><% } %>
+    <div class="pagination-pages"><% for(let p=1;p<=totalPages;p++){ if(p===1 || p===totalPages || Math.abs(p-page)<=2){ %><a class="pagination-page <%=p===page?'active':''%>" href="/courses?page=<%=p%><%=queryBase%>"><%=p%></a><% } else if(p===2 && page>4 || p===totalPages-1 && page<totalPages-3){ %><span class="pagination-ellipsis">…</span><% } } %></div>
+    <% if(page<totalPages){ %><a class="pagination-btn" href="/courses?page=<%=page+1%><%=queryBase%>">Next →</a><% } else { %><span class="pagination-btn disabled">Next →</span><% } %>
+</nav><% } %>
+<% } %>
+</main></body></html>

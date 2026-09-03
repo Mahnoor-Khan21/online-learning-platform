@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Learning — <%= course.title %></title><link rel="stylesheet" href="/style.css">
+</head>
+<body class="app-body">
+<%- include('_navbar',{active:'courses',name,role}) %>
+<main class="page-content learn-page">
+<a class="back-link" href="/courses/<%=course._id%>">← Course Overview</a>
+<div class="learn-shell">
+<aside class="learn-sidebar white-card">
+  <div class="learn-sidebar-head"><span class="course-tag"><%=course.category%></span><h2><%=course.title%></h2>
+  <div class="sidebar-progress"><div><span>Course progress</span><strong><%=progressPercent%>%</strong></div><div class="progress-bar"><i style="width:<%=progressPercent%>%"></i></div></div></div>
+  <div class="lesson-list">
+  <% course.lessons.forEach((l,i)=>{ const done=completedLessons.includes(i); %>
+    <a class="lesson-nav <%= i===lessonIndex?'active':'' %> <%=done?'done':''%>" href="/courses/<%=course._id%>/learn?lesson=<%=i%>">
+      <span class="lesson-nav-icon"><%=done?'✓':i+1%></span><span class="lesson-nav-copy"><strong><%=l.title%></strong><small><%=l.duration || '10 min'%></small></span>
+    </a>
+  <% }) %>
+  <% if(!course.lessons.length){ %><div class="empty-state compact"><div>📝</div><h3>No lessons yet</h3></div><% } %>
+  </div>
+</aside>
+
+<section class="learn-main">
+<% if(currentLesson){ %>
+  <div class="video-card white-card">
+    <div class="video-player">
+    <% const video = currentLesson.videoUrl || ''; const yt = video.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/]+)/i); %>
+    <% if(yt){ %><iframe src="https://www.youtube.com/embed/<%=yt[1]%>?rel=0" title="<%=currentLesson.title%>" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    <% } else if(video){ %><video controls playsinline preload="metadata"><source src="<%=video%>">Your browser does not support video playback.</video>
+    <% } else { %><div class="video-placeholder"><div>▶</div><strong>Video lesson</strong><span>No video has been added for this lesson yet.</span></div><% } %>
+    </div>
+    <div class="lesson-heading"><div><span class="lesson-counter">Lesson <%=lessonIndex+1%> of <%=course.lessons.length%></span><h1><%=currentLesson.title%></h1></div><% if(completedLessons.includes(lessonIndex)){ %><span class="completed-pill">✓ Completed</span><% } %></div>
+    <% if(currentLesson.description){ %><p class="lesson-description"><%=currentLesson.description%></p><% } %>
+    <% if(currentLesson.content){ %><div class="lesson-content-box"><%=currentLesson.content%></div><% } %>
+    <div class="quiz-launch-row"><a class="btn btn-quiz" href="/courses/<%=course._id%>/quiz">📝 Take Course Quiz</a></div>
+    <div class="learning-actions">
+      <% if(lessonIndex>0){ %><a class="btn btn-ghost" href="/courses/<%=course._id%>/learn?lesson=<%=lessonIndex-1%>">← Previous Lesson</a><% } else { %><span></span><% } %>
+      <form action="/courses/<%=course._id%>/lessons/<%=lessonIndex%>/toggle" method="POST"><button class="btn <%=completedLessons.includes(lessonIndex)?'btn-ghost':'btn-blue'%> complete-lesson-btn"><%=completedLessons.includes(lessonIndex)?'✓ Completed — Mark Incomplete':'✓ Mark Lesson as Complete'%></button></form>
+      <% if(lessonIndex<course.lessons.length-1){ %><a class="btn btn-blue" href="/courses/<%=course._id%>/learn?lesson=<%=lessonIndex+1%>">Next Lesson →</a><% } else { %><a class="btn btn-blue" href="/courses/<%=course._id%>">Finish Course</a><% } %>
+    </div>
+  </div>
+<% } else { %><div class="white-card empty-state"><div>🎓</div><h2>Your course is ready</h2><p>The instructor hasn't added any lessons yet.</p></div><% } %>
+</section>
+</div>
+</main>
+</body></html>
