@@ -142,13 +142,15 @@ async function notifyUsers(userIds, type, title, message, link = '') {
     catch (err) { console.error('Notification bulk create error:', err.message); }
 }
 app.use(async (req, res, next) => {
-    res.locals.notificationUnreadCount = 0; res.locals.notificationItems = [];
+    res.locals.notificationUnreadCount = 0; res.locals.notificationItems = []; res.locals.currentUser = null;
     if (!req.session.userId) return next();
     try {
-        const [unread, items] = await Promise.all([
+        const [unread, items, currentUser] = await Promise.all([
             Notification.countDocuments({ userId: req.session.userId, readAt: null }),
-            Notification.find({ userId: req.session.userId }).sort({ createdAt: -1 }).limit(8).lean()
+            Notification.find({ userId: req.session.userId }).sort({ createdAt: -1 }).limit(8).lean(),
+            User.findById(req.session.userId).select('name email role profilePicture').lean()
         ]);
+        res.locals.currentUser = currentUser;
         res.locals.notificationUnreadCount = unread; res.locals.notificationItems = items;
     } catch (err) { console.error('Notification navbar error:', err.message); }
     next();

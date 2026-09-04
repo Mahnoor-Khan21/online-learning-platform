@@ -38,6 +38,7 @@
   <div class="mobile-brand"><a href="/dashboard" class="navbar-logo">Learn<span>Hub</span></a></div>
   <div class="topbar-title"><span class="topbar-kicker">LEARNHUB</span><strong><%= role === 'teacher' ? 'Instructor Workspace' : role === 'admin' ? 'Administration' : 'Learning Workspace' %></strong></div>
   <div class="navbar-right">
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"><span class="theme-icon">☾</span><span class="theme-label">Dark</span></button>
     <div class="topbar-search"><span>⌕</span><input aria-label="Search" placeholder="Search courses, lessons..." onkeydown="if(event.key==='Enter'){location.href='/courses?search='+encodeURIComponent(this.value)}"></div>
     <div class="notification-menu" id="notificationMenu">
       <button class="notification-bell" type="button" aria-label="Notifications" aria-expanded="false" onclick="toggleNotifications()">♢<% if (notificationUnreadCount > 0) { %><span class="notification-badge"><%= notificationUnreadCount > 99 ? '99+' : notificationUnreadCount %></span><% } %></button>
@@ -50,11 +51,12 @@
         <div class="notification-dropdown-foot"><form action="/notifications/read-all" method="POST"><button type="submit">Mark all as read</button></form><a href="/notifications">View all notifications →</a></div>
       </div>
     </div>
-    <a class="topbar-user" href="/profile"><span class="topbar-avatar"><%= (name || 'U').charAt(0).toUpperCase() %></span><span><strong><%= name %></strong><small><%= role === 'teacher' ? 'Instructor' : role === 'admin' ? 'Administrator' : 'Student' %></small></span></a>
+    <a class="topbar-user" href="/profile"><span class="topbar-avatar"><% if (typeof currentUser !== 'undefined' && currentUser && currentUser.profilePicture) { %><img src="<%= currentUser.profilePicture %>" alt="Profile picture"><% } else { %><%= (name || 'U').charAt(0).toUpperCase() %><% } %></span><span><strong><%= name %></strong><small><%= role === 'teacher' ? 'Instructor' : role === 'admin' ? 'Administrator' : 'Student' %></small></span></a>
   </div>
 </nav>
 <script>
 function toggleNotifications(){const m=document.getElementById('notificationMenu'),d=document.getElementById('notificationDropdown');const open=m.classList.toggle('open');d.classList.toggle('open',open);m.querySelector('.notification-bell').setAttribute('aria-expanded',open?'true':'false');}
 async function markNotificationRead(id){try{await fetch('/notifications/'+id+'/read',{method:'POST',headers:{Accept:'application/json'}});}catch(e){} }
 document.addEventListener('click',e=>{const m=document.getElementById('notificationMenu');if(m&&!m.contains(e.target)){m.classList.remove('open');document.getElementById('notificationDropdown').classList.remove('open');}});
+(function(){const key='learnhub-theme';const saved=localStorage.getItem(key);if(saved==='dark')document.documentElement.classList.add('dark');const b=document.getElementById('themeToggle');function sync(){const dark=document.documentElement.classList.contains('dark');b.querySelector('.theme-icon').textContent=dark?'☀':'☾';b.querySelector('.theme-label').textContent=dark?'Light':'Dark';b.setAttribute('aria-label',dark?'Switch to light mode':'Switch to dark mode');}sync();b.addEventListener('click',()=>{document.documentElement.classList.toggle('dark');localStorage.setItem(key,document.documentElement.classList.contains('dark')?'dark':'light');sync();});})();
 </script>

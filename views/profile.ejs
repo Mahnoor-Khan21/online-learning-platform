@@ -26,9 +26,7 @@
             <div class="profile-info-card">
 
                 <!-- Big avatar with first letter of name -->
-                <div class="profile-avatar">
-                    <%= user.name.charAt(0).toUpperCase() %>
-                </div>
+                <div class="profile-avatar profile-avatar-large"><% if (user.profilePicture) { %><img src="<%= user.profilePicture %>" alt="<%= user.name %> profile picture"><% } else { %><%= user.name.charAt(0).toUpperCase() %><% } %></div>
 
                 <div class="profile-name"><%= user.name %></div>
                 <div class="profile-email"><%= user.email %></div>
@@ -71,7 +69,7 @@
                 <% } %>
 
                 <!-- Update name form -->
-                <form action="/profile/update" method="POST">
+                <form action="/profile/update" method="POST" enctype="multipart/form-data">
                     <div class="field">
                         <label for="name">Display Name</label>
                         <!-- value="..." pre-fills the field with the current name -->
@@ -93,10 +91,16 @@
                         <span class="field-note">Role is managed by an administrator.</span>
                     </div>
 
+                    <div class="profile-upload-box">
+                        <div class="profile-upload-preview"><% if (user.profilePicture) { %><img src="<%= user.profilePicture %>" alt="Current profile picture"><% } else { %><span><%= user.name.charAt(0).toUpperCase() %></span><% } %></div>
+                        <div class="profile-upload-copy"><strong>Profile picture</strong><p>JPG, PNG, WEBP or GIF · maximum 2 MB</p><label class="btn btn-ghost btn-sm upload-label" for="profilePicture">Choose image</label><input id="profilePicture" name="profilePicture" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onchange="document.getElementById('profileFileName').textContent=this.files[0]?.name||'No image selected';"><span id="profileFileName" class="field-note">No image selected</span></div>
+                        
+                    </div>
                     <div class="field"><label for="bio">Bio</label><textarea id="bio" name="bio" rows="4" maxlength="500"><%= user.bio || '' %></textarea></div>
                     <% if(user.role === 'teacher'){ %><div class="field"><label for="expertise">Expertise</label><input id="expertise" name="expertise" maxlength="300" value="<%= user.expertise || '' %>" placeholder="Web Development, JavaScript, React"></div><% } %>
                     <button type="submit" class="btn btn-blue">Save Changes</button>
                 </form>
+                <% if (user.profilePicture) { %><form action="/profile/remove-picture" method="POST" class="inline-remove profile-remove-form"><button type="submit" class="btn btn-danger btn-sm">Remove current picture</button></form><% } %>
 
             </div>
 
