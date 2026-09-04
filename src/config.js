@@ -66,8 +66,11 @@ const courseSchema = new mongoose.Schema({
         description: { type: String, default: '', trim: true },
         duration: { type: String, default: '10 min' },
         videoUrl: { type: String, default: '' },
-        content: { type: String, default: '' }
+        content: { type: String, default: '' },
+        resources: [{ name: String, type: String, url: String }]
     }],
+    price: { type: Number, default: 0, min: 0 },
+    discount: { type: Number, default: 0, min: 0, max: 100 },
     teacherId:   { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true },
     teacherName: { type: String, required: true },
     enrolledStudents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'users' }],
@@ -157,5 +160,126 @@ const categorySchema = new mongoose.Schema({
 });
 const Category = mongoose.model('categories', categorySchema);
 
+
+// ─── LMS FEATURE MODELS ──────────────────────────────────
+const attendanceSchema = new mongoose.Schema({
+    courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'courses', required: true, index: true },
+    lessonIndex: { type: Number, default: null },
+    studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
+    status: { type: String, enum: ['present','absent'], required: true },
+    markedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true },
+    date: { type: Date, default: Date.now, index: true }
+}, { timestamps: true });
+attendanceSchema.index({ courseId: 1, studentId: 1, date: 1 });
+const Attendance = mongoose.model('attendances', attendanceSchema);
+
+const liveClassSchema = new mongoose.Schema({
+    courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'courses', required: true, index: true },
+    title: { type: String, required: true, maxlength: 160 },
+    description: { type: String, default: '', maxlength: 1000 },
+    date: { type: Date, required: true, index: true },
+    durationMinutes: { type: Number, default: 60 },
+    meetingLink: { type: String, default: '' },
+    status: { type: String, enum: ['upcoming','past','cancelled'], default: 'upcoming' },
+    teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true }
+}, { timestamps: true });
+const LiveClass = mongoose.model('live_classes', liveClassSchema);
+
+const assignmentSchema = new mongoose.Schema({
+    courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'courses', required: true, index: true },
+    title: { type: String, required: true, maxlength: 160 },
+    description: { type: String, default: '', maxlength: 5000 },
+    dueDate: { type: Date, required: true },
+    maxMarks: { type: Number, default: 100 },
+    attachmentName: { type: String, default: '' },
+    attachmentUrl: { type: String, default: '' },
+    teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true }
+}, { timestamps: true });
+const Assignment = mongoose.model('assignments', assignmentSchema);
+
+const assignmentSubmissionSchema = new mongoose.Schema({
+    assignmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'assignments', required: true, index: true },
+    studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
+    text: { type: String, default: '', maxlength: 10000 },
+    fileName: { type: String, default: '' },
+    fileUrl: { type: String, default: '' },
+    submittedAt: { type: Date, default: Date.now },
+    marks: { type: Number, default: null },
+    feedback: { type: String, default: '', maxlength: 3000 },
+    gradedAt: { type: Date, default: null }
+}, { timestamps: true });
+assignmentSubmissionSchema.index({ assignmentId: 1, studentId: 1 }, { unique: true });
+const AssignmentSubmission = mongoose.model('assignment_submissions', assignmentSubmissionSchema);
+
+const discussionPostSchema = new mongoose.Schema({
+    courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'courses', required: true, index: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true },
+    userName: { type: String, required: true },
+    title: { type: String, required: true, maxlength: 160 },
+    body: { type: String, required: true, maxlength: 5000 },
+    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'users' }],
+    answerId: { type: mongoose.Schema.Types.ObjectId, default: null }
+}, { timestamps: true });
+const DiscussionPost = mongoose.model('discussion_posts', discussionPostSchema);
+
+const noteSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
+    courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'courses', required: true },
+    lessonIndex: { type: Number, required: true },
+    content: { type: String, required: true, maxlength: 5000 }
+}, { timestamps: true });
+const Note = mongoose.model('notes', noteSchema);
+
+const bookmarkSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
+    courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'courses', required: true },
+    lessonIndex: { type: Number, required: true }
+}, { timestamps: true });
+bookmarkSchema.index({ userId: 1, courseId: 1, lessonIndex: 1 }, { unique: true });
+const Bookmark = mongoose.model('bookmarks', bookmarkSchema);
+
+const wishlistSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
+    courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'courses', required: true }
+}, { timestamps: true });
+wishlistSchema.index({ userId: 1, courseId: 1 }, { unique: true });
+const Wishlist = mongoose.model('wishlists', wishlistSchema);
+
+const learningLogSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
+    courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'courses', required: true },
+    minutes: { type: Number, min: 1, max: 1440, required: true },
+    date: { type: Date, default: Date.now, index: true }
+}, { timestamps: true });
+const LearningLog = mongoose.model('learning_logs', learningLogSchema);
+
+const messageSchema = new mongoose.Schema({
+    senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
+    receiverId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
+    body: { type: String, required: true, maxlength: 5000 },
+    readAt: { type: Date, default: null }
+}, { timestamps: true });
+const Message = mongoose.model('messages', messageSchema);
+
+const reportSchema = new mongoose.Schema({
+    reporterId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true },
+    courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'courses', default: null },
+    targetUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', default: null },
+    reason: { type: String, required: true, maxlength: 160 },
+    details: { type: String, default: '', maxlength: 3000 },
+    status: { type: String, enum: ['open','resolved'], default: 'open' }
+}, { timestamps: true });
+const Report = mongoose.model('reports', reportSchema);
+
+const badgeSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
+    key: { type: String, required: true },
+    name: { type: String, required: true },
+    icon: { type: String, required: true },
+    earnedAt: { type: Date, default: Date.now }
+});
+badgeSchema.index({ userId: 1, key: 1 }, { unique: true });
+const Badge = mongoose.model('badges', badgeSchema);
+
 // Export all models so index.js can use them
-module.exports = { User, Course, QuizAttempt, Certificate, Notification, Category, databaseConnection };
+module.exports = { User, Course, QuizAttempt, Certificate, Notification, Category, Attendance, LiveClass, Assignment, AssignmentSubmission, DiscussionPost, Note, Bookmark, Wishlist, LearningLog, Message, Report, Badge, databaseConnection };

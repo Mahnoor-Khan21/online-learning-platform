@@ -34,6 +34,13 @@
     <div class="lesson-heading"><div><span class="lesson-counter">Lesson <%=lessonIndex+1%> of <%=course.lessons.length%></span><h1><%=currentLesson.title%></h1></div><% if(completedLessons.includes(lessonIndex)){ %><span class="completed-pill">✓ Completed</span><% } %></div>
     <% if(currentLesson.description){ %><p class="lesson-description"><%=currentLesson.description%></p><% } %>
     <% if(currentLesson.content){ %><div class="lesson-content-box"><%=currentLesson.content%></div><% } %>
+    <div class="feature-actions">
+      <form action="/bookmarks/toggle" method="POST"><input type="hidden" name="courseId" value="<%=course._id%>"><input type="hidden" name="lessonIndex" value="<%=lessonIndex%>"><button class="btn btn-ghost" type="submit">🔖 Bookmark Lesson</button></form>
+      <a class="btn btn-ghost" href="/courses/<%=course._id%>/resources">📚 Resources</a>
+      <a class="btn btn-ghost" href="/courses/<%=course._id%>/discussion">💬 Discussion</a>
+      <a class="btn btn-ghost" href="/courses/<%=course._id%>/assignments">📝 Assignments</a>
+    </div>
+    <form action="/notes" method="POST" class="white-card note-inline"><input type="hidden" name="courseId" value="<%=course._id%>"><input type="hidden" name="lessonIndex" value="<%=lessonIndex%>"><label><strong>📝 My note for this lesson</strong></label><textarea name="content" rows="3" placeholder="Write a private note..."></textarea><button class="btn btn-blue">Save Note</button></form>
     <div class="quiz-launch-row"><a class="btn btn-quiz" href="/courses/<%=course._id%>/quiz">📝 Take Course Quiz</a></div>
     <div class="learning-actions">
       <% if(lessonIndex>0){ %><a class="btn btn-ghost" href="/courses/<%=course._id%>/learn?lesson=<%=lessonIndex-1%>">← Previous Lesson</a><% } else { %><span></span><% } %>

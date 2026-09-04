@@ -8,7 +8,7 @@
 </head>
 <body class="app-body">
 
-    <%- include('_navbar', { active: 'users', name, role }) %>
+    <%- include('_navbar', { active: 'users', name, role, userId }) %>
 
     <div class="page-content">
 
@@ -27,7 +27,7 @@
                             <th>User</th>
                             <th>Email</th>
                             <th>Role</th>
-                            <th>Joined</th>
+                            <th>Status</th><th>Joined</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -60,6 +60,10 @@
                                 </form>
                             </td>
 
+                            <td><span class="badge badge-<%= u.active === false ? 'orange' : 'blue' %>"><%= u.active === false ? 'Inactive' : 'Active' %></span>
+                                <% if (u._id.toString() !== (typeof userId !== 'undefined' ? userId.toString() : '')) { %>
+                                <form action="/admin/users/<%= u._id %>/status" method="POST" class="inline"><input type="hidden" name="active" value="<%= u.active === false ? 'true' : 'false' %>"><button class="btn btn-ghost btn-sm"><%= u.active === false ? 'Activate' : 'Suspend' %></button></form>
+                                <% } %></td>
                             <!-- Join date -->
                             <td style="color:#6b7280; font-size:.85rem;">
                                 <%= u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—' %>

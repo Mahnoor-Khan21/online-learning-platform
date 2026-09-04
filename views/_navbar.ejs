@@ -4,9 +4,9 @@
   <div class="navbar-links">
     <a href="/dashboard" class="navbar-link <%= active === 'dashboard' ? 'active' : '' %>">Dashboard</a>
     <a href="/courses" class="navbar-link <%= active === 'courses' ? 'active' : '' %>">Courses</a>
-    <% if (role === 'student') { %><a href="/my-courses" class="navbar-link <%= active === 'my-courses' ? 'active' : '' %>">My Courses</a><a href="/quiz-history" class="navbar-link <%= active === 'quiz-history' ? 'active' : '' %>">Quiz History</a><% } %>
+    <a href="/calendar" class="navbar-link">Calendar</a><a href="/analytics" class="navbar-link">Analytics</a><a href="/messages" class="navbar-link">Messages</a><% if (role === 'student') { %><a href="/my-learning-tools" class="navbar-link">My Tools</a><a href="/my-courses" class="navbar-link <%= active === 'my-courses' ? 'active' : '' %>">My Courses</a><a href="/quiz-history" class="navbar-link <%= active === 'quiz-history' ? 'active' : '' %>">Quiz History</a><% } %>
     <a href="/profile" class="navbar-link <%= active === 'profile' ? 'active' : '' %>">Profile</a>
-    <% if (role === 'teacher') { %><a href="/courses/add" class="navbar-link">Create Course</a><% } %><% if (role === 'admin') { %><a href="/admin/users" class="navbar-link <%= active === 'users' ? 'active' : '' %>">Admin</a><% } %>
+    <% if (role === 'teacher') { %><a href="/calendar" class="navbar-link">Classes</a><a href="/analytics" class="navbar-link">Analytics</a><a href="/courses/add" class="navbar-link">Create Course</a><% } %><% if (role === 'admin') { %><a href="/calendar" class="navbar-link">Calendar</a><a href="/analytics" class="navbar-link">Analytics</a><a href="/admin/reports" class="navbar-link">Reports</a><a href="/admin/attendance" class="navbar-link">Attendance</a><a href="/admin/users" class="navbar-link <%= active === 'users' ? 'active' : '' %>">Admin</a><% } %>
   </div>
   <div class="navbar-right">
     <div class="notification-menu" id="notificationMenu">

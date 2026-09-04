@@ -93,12 +93,16 @@
                         <span class="field-note">Role is managed by an administrator.</span>
                     </div>
 
+                    <div class="field"><label for="bio">Bio</label><textarea id="bio" name="bio" rows="4" maxlength="500"><%= user.bio || '' %></textarea></div>
+                    <% if(user.role === 'teacher'){ %><div class="field"><label for="expertise">Expertise</label><input id="expertise" name="expertise" maxlength="300" value="<%= user.expertise || '' %>" placeholder="Web Development, JavaScript, React"></div><% } %>
                     <button type="submit" class="btn btn-blue">Save Changes</button>
                 </form>
 
             </div>
 
-        </div>
+        <form action="/logout-all" method="POST" style="margin-top:12px;"><button class="btn btn-ghost">🔐 Logout From All Devices</button></form>
+
+</div>
 
     </div>
 

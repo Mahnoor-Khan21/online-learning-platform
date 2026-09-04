@@ -10,7 +10,7 @@ const express    = require('express');
 const bcrypt     = require('bcrypt');
 const session    = require('express-session');
 const MongoStore = require('connect-mongo');
-const { User, Course, QuizAttempt, Certificate, Notification, Category, databaseConnection } = require('./config');
+const { User, Course, QuizAttempt, Certificate, Notification, Category, Attendance, LiveClass, Assignment, AssignmentSubmission, DiscussionPost, Note, Bookmark, Wishlist, LearningLog, Message, Report, Badge, databaseConnection } = require('./config');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('./email');
 const crypto = require('crypto');
 const multer = require('multer');
@@ -53,6 +53,32 @@ const courseUpload = multer({
     }
 });
 
+const attachmentUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => cb(null, true)
+});
+function dataUrlFromFile(file) {
+    return file ? `data:${file.mimetype};base64,${file.buffer.toString('base64')}` : '';
+}
+function escapeRegex(value) { return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+async function awardBadge(userId, key, name, icon) {
+    try { await Badge.updateOne({userId, key}, {$setOnInsert:{userId,key,name,icon}}, {upsert:true}); } catch(e) {}
+}
+async function updateLearningStreak(userId) {
+    const u=await User.findById(userId); if(!u) return;
+    const now=new Date(); const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    const last=u.lastLearningDate ? new Date(u.lastLearningDate) : null;
+    if (!last) u.streak=1;
+    else {
+        const prev=new Date(last.getFullYear(),last.getMonth(),last.getDate());
+        const diff=Math.round((today-prev)/86400000);
+        if(diff===1) u.streak=(u.streak||0)+1;
+        else if(diff>1) u.streak=1;
+    }
+    u.lastLearningDate=now; await u.save();
+    if((u.streak||0)>=7) await awardBadge(userId,'streak7','7 Day Learning Streak','🔥');
+}
 function handleCourseUpload(req, res, next) {
     courseUpload.single('thumbnailFile')(req, res, err => {
         if (!err) return next();
@@ -133,9 +159,9 @@ app.use(async (req, res, next) => {
 // ─────────────────────────────────────────────────────────
 
 // Only logged-in users can access the page
-function requireLogin(req, res, next) {
+async function requireLogin(req, res, next) {
     if (!req.session.userId) return res.redirect('/login');
-    next();
+    try { const u=await User.findById(req.session.userId,{sessionVersion:1,active:1}); if(!u||u.active===false||(u.sessionVersion||0)!==(req.session.sessionVersion||0)){req.session.destroy(()=>{});return res.redirect('/login');} next(); } catch(e){ return res.redirect('/login'); }
 }
 
 // Only users with the right role can access the page
@@ -179,6 +205,7 @@ app.post('/login', async (req, res) => {
         const user = await User.findOne({ email });
         if (!user)
             return res.render('login', { error: 'Invalid email or password.' });
+        if (user.active === false) return res.render('login', { error: 'Your account is inactive. Please contact an administrator.' });
 
         const match = await bcrypt.compare(password, user.password);
         if (!match)
@@ -219,6 +246,8 @@ app.post('/login', async (req, res) => {
         req.session.userId   = user._id;
         req.session.userName = user.name;
         req.session.userRole = user.role;
+        req.session.sessionVersion = user.sessionVersion || 0;
+        user.loginActivity = [{at:new Date(),ip:req.ip,userAgent:req.get('user-agent')||''},...(user.loginActivity||[])].slice(0,10); await user.save();
 
         res.redirect('/dashboard');
 
@@ -662,6 +691,8 @@ app.get('/dashboard', requireLogin, async (req, res) => {
             data.recentlyWatched = recentlyWatched;
             data.completedCourseList = completed;
             data.recommendedCourses = recommended;
+            const [studentUser, studentAttendance, studentLogs] = await Promise.all([User.findById(userId,{streak:1}).lean(), Attendance.find({studentId:userId}).lean(), LearningLog.find({userId:userId}).lean()]);
+            data.streak = studentUser?.streak || 0; data.attendancePercent = studentAttendance.length ? Math.round(studentAttendance.filter(x=>x.status==='present').length/studentAttendance.length*100) : 0; data.learningMinutes = studentLogs.reduce((n,x)=>n+x.minutes,0);
         }
 
         res.render('dashboard', data);
@@ -930,6 +961,8 @@ app.post('/courses/:id/lessons/:lessonIndex/toggle', requireLogin, requireRole('
         if (progress.completedLessons.length === course.lessons.length && course.lessons.length) course.completedStudents.addToSet(req.session.userId);
         else course.completedStudents.pull(req.session.userId);
         await course.save();
+        await updateLearningStreak(req.session.userId);
+        await LearningLog.create({ userId: req.session.userId, courseId: course._id, minutes: Number(req.body.minutes) > 0 ? Math.min(120, Number(req.body.minutes)) : 10 });
         if (progress.completedLessons.length === course.lessons.length && course.lessons.length > 0 && !(await Notification.exists({ userId: req.session.userId, type: 'completion', link: `/courses/${course._id}` }))) {
             await createNotification(req.session.userId, 'completion', 'Course completed', `Congratulations! You completed ${course.title}.`, `/courses/${course._id}`);
         }
@@ -1213,6 +1246,7 @@ app.post('/profile/update', requireLogin, handleProfileUpload, async (req, res) 
         await databaseConnection;
 
         const name = String(req.body.name || '').trim();
+        const expertise = String(req.body.expertise || '').trim();
         const bio = String(req.body.bio || '').trim();
 
         if (!name) {
@@ -1234,7 +1268,7 @@ app.post('/profile/update', requireLogin, handleProfileUpload, async (req, res) 
             return res.redirect('/profile?error=' + encodeURIComponent('That username is already taken.'));
         }
 
-        const update = { name, bio };
+        const update = { name, bio, expertise };
 
         if (req.file) {
             // multer has already checked the size and MIME type.
@@ -1357,6 +1391,209 @@ app.post('/admin/users/:id/role', requireLogin, requireRole('admin'), async (req
         console.error('Change role error:', err);
         res.redirect('/admin/users');
     }
+});
+
+
+// ─────────────────────────────────────────────────────────
+//  PROFESSIONAL LMS FEATURES
+// ─────────────────────────────────────────────────────────
+function safeDate(value) { const d = new Date(value); return Number.isNaN(d.getTime()) ? null : d; }
+async function getStudentCourse(courseId, userId) {
+    const c = await Course.findOne({_id:courseId, enrolledStudents:userId});
+    return c;
+}
+
+// Attendance: student history + instructor marking + admin oversight
+app.get('/courses/:id/attendance', requireLogin, async (req,res) => {
+    try {
+        const course=await Course.findById(req.params.id).lean(); if(!course) return res.status(404).send('Course not found');
+        const isTeacher=String(course.teacherId)===String(req.session.userId);
+        if(req.session.userRole==='student' && !(course.enrolledStudents||[]).some(x=>String(x)===String(req.session.userId))) return res.render('access-denied',{name:req.session.userName,role:req.session.userRole});
+        const filter={courseId:course._id};
+        if(req.session.userRole==='student') filter.studentId=req.session.userId;
+        const records=await Attendance.find(filter).populate('studentId','name email').sort({date:-1}).lean();
+        const grouped={}; records.forEach(r=>{const k=String(r.studentId?._id||r.studentId); grouped[k] ||= {student:r.studentId,records:[],present:0,absent:0}; grouped[k].records.push(r); r.status==='present'?grouped[k].present++:grouped[k].absent++;});
+        const rows=Object.values(grouped).map(x=>({...x,total:x.present+x.absent,percentage:x.present+x.absent?Math.round(x.present/(x.present+x.absent)*100):0}));
+        const students=req.session.userRole==='teacher'&&isTeacher ? await User.find({_id:{$in:course.enrolledStudents||[]},role:'student'},{name:1,email:1}).lean() : [];
+        res.render('feature',{name:req.session.userName,role:req.session.userRole,title:'Attendance — '+course.title,section:'attendance',course,rows,students,records});
+    } catch(e){console.error(e);res.status(500).send(e.message)}
+});
+app.post('/courses/:id/attendance/mark', requireLogin, requireRole('teacher','admin'), async (req,res)=>{
+    try{
+        const course=await Course.findById(req.params.id); if(!course) return res.redirect('/courses');
+        if(req.session.userRole==='teacher' && String(course.teacherId)!==String(req.session.userId)) return res.status(403).send('Not your course');
+        const studentId=req.body.studentId, status=req.body.status==='present'?'present':'absent';
+        const date=safeDate(req.body.date)||new Date();
+        await Attendance.create({courseId:course._id,studentId,status,markedBy:req.session.userId,date,lessonIndex:req.body.lessonIndex?Number(req.body.lessonIndex):null});
+        await createNotification(studentId,'system','Attendance updated',`${course.title}: marked ${status}.`,`/courses/${course._id}/attendance`);
+        res.redirect(`/courses/${course._id}/attendance`);
+    }catch(e){console.error(e);res.status(400).send(e.message)}
+});
+app.get('/admin/attendance', requireLogin, requireRole('admin'), async (req,res)=>{
+    const records=await Attendance.find().populate('courseId','title').populate('studentId','name email').populate('markedBy','name').sort({date:-1}).limit(500).lean();
+    res.render('feature',{name:req.session.userName,role:req.session.userRole,title:'All Attendance',section:'admin-attendance',records,rows:[]});
+});
+
+// Live classes + calendar
+app.get('/calendar', requireLogin, async(req,res)=>{
+    const now=new Date(), courseQuery=req.session.userRole==='student'?{enrolledStudents:req.session.userId}:{};
+    const courses=await Course.find(courseQuery,{title:1}).lean(); const ids=courses.map(c=>c._id);
+    const classes=await LiveClass.find(req.session.userRole==='admin'?{}:{courseId:{$in:ids}}).populate('courseId','title').populate('teacherId','name').sort({date:1}).lean();
+    const quizzes=await QuizAttempt.find({userId:req.session.userId}).sort({attemptedAt:1}).limit(100).lean();
+    const instructorCourses=req.session.userRole==='teacher'?await Course.find({teacherId:req.session.userId},{title:1}).lean():[]; res.render('feature',{name:req.session.userName,role:req.session.userRole,title:'My Calendar',section:'calendar',classes,quizzes,now,courses:instructorCourses});
+});
+app.post('/instructor/classes/create', requireLogin, requireRole('teacher'), async(req,res)=>{
+    const course=await Course.findOne({_id:req.body.courseId,teacherId:req.session.userId}); if(!course) return res.status(403).send('Not your course');
+    const cls=await LiveClass.create({courseId:course._id,title:req.body.title,description:req.body.description,date:safeDate(req.body.date)||new Date(),durationMinutes:Number(req.body.durationMinutes)||60,meetingLink:req.body.meetingLink||'',teacherId:req.session.userId});
+    await notifyUsers(course.enrolledStudents,'system','Upcoming live class',`${cls.title} for ${course.title}.`,`/calendar`);
+    res.redirect('/calendar');
+});
+app.post('/instructor/classes/:id/cancel', requireLogin, requireRole('teacher','admin'), async(req,res)=>{ const c=await LiveClass.findById(req.params.id); if(c && (req.session.userRole==='admin'||String(c.teacherId)===String(req.session.userId))){c.status='cancelled';await c.save();} res.redirect('/calendar'); });
+
+// Assignments
+app.get('/courses/:id/assignments', requireLogin, async(req,res)=>{
+    const course=await Course.findById(req.params.id).lean(); if(!course) return res.status(404).send('Course not found');
+    const allowed=req.session.userRole==='admin'||String(course.teacherId)===String(req.session.userId)||(course.enrolledStudents||[]).some(x=>String(x)===String(req.session.userId));
+    if(!allowed) return res.render('access-denied',{name:req.session.userName,role:req.session.userRole});
+    const assignments=await Assignment.find({courseId:course._id}).sort({dueDate:1}).lean();
+    const subs=req.session.userRole==='student'?await AssignmentSubmission.find({studentId:req.session.userId,assignmentId:{$in:assignments.map(a=>a._id)}}).lean():[];
+    const subMap=Object.fromEntries(subs.map(x=>[String(x.assignmentId),x]));
+    res.render('feature',{name:req.session.userName,role:req.session.userRole,title:'Assignments — '+course.title,section:'assignments',course,assignments,subMap});
+});
+app.post('/courses/:id/assignments/create', requireLogin, requireRole('teacher'), attachmentUpload.single('attachment'), async(req,res)=>{
+    const course=await Course.findOne({_id:req.params.id,teacherId:req.session.userId}); if(!course) return res.status(403).send('Not your course');
+    await Assignment.create({courseId:course._id,title:req.body.title,description:req.body.description,dueDate:safeDate(req.body.dueDate)||new Date(),maxMarks:Number(req.body.maxMarks)||100,attachmentName:req.file?.originalname||'',attachmentUrl:dataUrlFromFile(req.file),teacherId:req.session.userId});
+    res.redirect(`/courses/${course._id}/assignments`);
+});
+app.post('/assignments/:id/submit', requireLogin, requireRole('student'), attachmentUpload.single('file'), async(req,res)=>{
+    const a=await Assignment.findById(req.params.id).populate('courseId'); if(!a || !a.courseId.enrolledStudents.some(x=>String(x)===String(req.session.userId))) return res.status(403).send('Not allowed');
+    await AssignmentSubmission.findOneAndUpdate({assignmentId:a._id,studentId:req.session.userId},{text:req.body.text||'',fileName:req.file?.originalname||'',fileUrl:dataUrlFromFile(req.file),submittedAt:new Date(),marks:null,feedback:''},{upsert:true,new:true});
+    await createNotification(a.teacherId,'system','New assignment submission',`${req.session.userName} submitted ${a.title}.`,`/courses/${a.courseId._id}/assignments`);
+    res.redirect(`/courses/${a.courseId._id}/assignments`);
+});
+app.get('/assignments/:id/submissions', requireLogin, requireRole('teacher','admin'), async(req,res)=>{
+    const a=await Assignment.findById(req.params.id).populate('courseId','title teacherId').lean(); if(!a) return res.status(404).send('Not found');
+    if(req.session.userRole==='teacher'&&String(a.courseId.teacherId)!==String(req.session.userId)) return res.status(403).send('Not allowed');
+    const submissions=await AssignmentSubmission.find({assignmentId:a._id}).populate('studentId','name email').sort({submittedAt:-1}).lean();
+    res.render('feature',{name:req.session.userName,role:req.session.userRole,title:'Grade Assignment',section:'grade-assignment',assignment:a,submissions});
+});
+app.post('/assignments/:id/submissions/:submissionId/grade', requireLogin, requireRole('teacher','admin'), async(req,res)=>{
+    const a=await Assignment.findById(req.params.id).populate('courseId'); if(!a) return res.status(404).send('Not found');
+    if(req.session.userRole==='teacher'&&String(a.courseId.teacherId)!==String(req.session.userId)) return res.status(403).send('Not allowed');
+    await AssignmentSubmission.findByIdAndUpdate(req.params.submissionId,{marks:Math.max(0,Number(req.body.marks)||0),feedback:req.body.feedback||'',gradedAt:new Date()});
+    res.redirect(`/assignments/${a._id}/submissions`);
+});
+
+// Resources
+app.get('/courses/:id/resources', requireLogin, async(req,res)=>{
+    const course=await Course.findById(req.params.id).lean(); if(!course) return res.status(404).send('Not found');
+    const resources=(course.lessons||[]).flatMap((l,i)=>(l.resources||[]).map(r=>({...r,lessonIndex:i,lessonTitle:l.title})));
+    res.render('feature',{name:req.session.userName,role:req.session.userRole,title:'Course Resources',section:'resources',course,resources});
+});
+
+
+app.post('/courses/:id/resources/add', requireLogin, requireRole('teacher'), attachmentUpload.single('file'), async(req,res)=>{
+    const c=await Course.findOne({_id:req.params.id,teacherId:req.session.userId}); if(!c) return res.status(403).send('Not your course');
+    const i=Number(req.body.lessonIndex); if(!c.lessons[i]) return res.redirect(`/courses/${c._id}/resources`);
+    c.lessons[i].resources ||= []; const resourceUrl=req.file?dataUrlFromFile(req.file):(req.body.url||''); c.lessons[i].resources.push({name:req.body.name||req.file?.originalname,type:req.body.type||req.file?.mimetype||'Resource',url:resourceUrl}); await c.save();
+    res.redirect(`/courses/${c._id}/resources`);
+});
+
+// Discussion forum
+app.get('/courses/:id/discussion', requireLogin, async(req,res)=>{
+    const course=await Course.findById(req.params.id).lean(); if(!course) return res.status(404).send('Not found');
+    const posts=await DiscussionPost.find({courseId:course._id}).sort({createdAt:-1}).lean();
+    res.render('feature',{name:req.session.userName,role:req.session.userRole,title:'Discussion — '+course.title,section:'discussion',course,posts});
+});
+app.post('/courses/:id/discussion', requireLogin, async(req,res)=>{
+    const course=await Course.findById(req.params.id); if(!course) return res.redirect('/courses');
+    const enrolled=(course.enrolledStudents||[]).some(x=>String(x)===String(req.session.userId));
+    if(req.session.userRole==='student'&&!enrolled) return res.status(403).send('Enroll first');
+    await DiscussionPost.create({courseId:course._id,userId:req.session.userId,userName:req.session.userName,title:req.body.title,body:req.body.body});
+    res.redirect(`/courses/${course._id}/discussion`);
+});
+app.post('/discussion/:id/reply', requireLogin, async(req,res)=>{
+    const parent=await DiscussionPost.findById(req.params.id); if(!parent) return res.redirect('/courses');
+    const course=await Course.findById(parent.courseId);
+    await DiscussionPost.create({courseId:parent.courseId,userId:req.session.userId,userName:req.session.userName,title:'Re: '+parent.title,body:req.body.body});
+    res.redirect(`/courses/${course._id}/discussion`);
+});
+app.post('/discussion/:id/like', requireLogin, async(req,res)=>{
+    const p=await DiscussionPost.findById(req.params.id); if(p){const i=p.likes.findIndex(x=>String(x)===String(req.session.userId)); if(i>=0)p.likes.splice(i,1);else p.likes.push(req.session.userId);await p.save();} res.redirect('back');
+});
+app.post('/discussion/:id/answer', requireLogin, requireRole('teacher','admin'), async(req,res)=>{
+    const p=await DiscussionPost.findById(req.params.id); if(p){p.answerId=req.body.answerId||p._id;await p.save();} res.redirect('back');
+});
+
+// Notes, bookmarks, wishlist
+app.get('/my-learning-tools', requireLogin, async(req,res)=>{
+    const [notes,bookmarks,wishlist,badges,logs]=await Promise.all([
+        Note.find({userId:req.session.userId}).populate('courseId','title lessons').sort({updatedAt:-1}).lean(),
+        Bookmark.find({userId:req.session.userId}).populate('courseId','title lessons').sort({createdAt:-1}).lean(),
+        Wishlist.find({userId:req.session.userId}).populate('courseId','title thumbnail category level rating').sort({createdAt:-1}).lean(),
+        Badge.find({userId:req.session.userId}).sort({earnedAt:-1}).lean(),
+        LearningLog.find({userId:req.session.userId}).sort({date:-1}).limit(30).lean()
+    ]);
+    res.render('feature',{name:req.session.userName,role:req.session.userRole,title:'My Learning Tools',section:'tools',notes,bookmarks,wishlist,badges,logs});
+});
+app.post('/notes', requireLogin, async(req,res)=>{await Note.findOneAndUpdate({userId:req.session.userId,courseId:req.body.courseId,lessonIndex:Number(req.body.lessonIndex)},{content:req.body.content},{upsert:true});res.redirect(`/courses/${req.body.courseId}/learn?lesson=${Number(req.body.lessonIndex)||0}`);});
+app.post('/notes/:id/delete', requireLogin, async(req,res)=>{await Note.deleteOne({_id:req.params.id,userId:req.session.userId});res.redirect('/my-learning-tools');});
+app.post('/bookmarks/toggle', requireLogin, async(req,res)=>{const q={userId:req.session.userId,courseId:req.body.courseId,lessonIndex:Number(req.body.lessonIndex)};const x=await Bookmark.findOne(q);if(x)await x.deleteOne();else await Bookmark.create(q);res.redirect(`/courses/${req.body.courseId}/learn?lesson=${q.lessonIndex}`);});
+app.post('/wishlist/toggle', requireLogin, async(req,res)=>{const q={userId:req.session.userId,courseId:req.body.courseId};const x=await Wishlist.findOne(q);if(x)await x.deleteOne();else await Wishlist.create(q);res.redirect('/courses');});
+app.post('/learning-time', requireLogin, async(req,res)=>{const mins=Math.min(1440,Math.max(1,Number(req.body.minutes)||1));await LearningLog.create({userId:req.session.userId,courseId:req.body.courseId,minutes:mins});await updateLearningStreak(req.session.userId);res.redirect(req.get('referer')||'/dashboard');});
+
+// Student performance + instructor/admin analytics
+app.get('/analytics', requireLogin, async(req,res)=>{
+    const uid=req.session.userId;
+    if(req.session.userRole==='student'){
+        const courses=await Course.find({enrolledStudents:uid}).lean();
+        const at=await QuizAttempt.find({userId:uid}).lean(); const assignments=await Assignment.find({courseId:{$in:courses.map(c=>c._id)}}).lean();
+        const subs=await AssignmentSubmission.find({studentId:uid,assignmentId:{$in:assignments.map(a=>a._id)}}).lean();
+        const att=await Attendance.find({studentId:uid}).lean(); const logs=await LearningLog.find({userId:uid}).lean();
+        const attendancePct=att.length?Math.round(att.filter(x=>x.status==='present').length/att.length*100):0;
+        const quizAvg=at.length?Math.round(at.reduce((n,x)=>n+x.percentage,0)/at.length):0;
+        const assignAvg=subs.filter(x=>x.marks!=null).length?Math.round(subs.filter(x=>x.marks!=null).reduce((n,x)=>n+x.marks,0)/subs.filter(x=>x.marks!=null).length):0;
+        const progress=courses.length?Math.round(courses.reduce((n,c)=>{const p=c.progress?.find(x=>String(x.userId)===String(uid));return n+(c.lessons.length?Math.round((p?.completedLessons?.length||0)/c.lessons.length*100):0)},0)/courses.length):0;
+        res.render('feature',{name:req.session.userName,role:req.session.userRole,title:'My Performance',section:'analytics',stats:{progress,attendancePct,quizAvg,assignAvg,learningMinutes:logs.reduce((n,x)=>n+x.minutes,0)},courses,attempts:at});
+    } else {
+        const filter=req.session.userRole==='teacher'?{teacherId:uid}:{};
+        const courses=await Course.find(filter).lean(); const ids=courses.map(c=>c._id);
+        const at=await QuizAttempt.find({courseId:{$in:ids}}).lean(); const att=await Attendance.find({courseId:{$in:ids}}).lean();
+        const totalEnrollments=courses.reduce((n,c)=>n+c.enrolledStudents.length,0);
+        const completion=courses.length?Math.round(courses.reduce((n,c)=>n+(c.enrolledStudents.length?c.completedStudents.length/c.enrolledStudents.length*100:0),0)/courses.length):0;
+        res.render('feature',{name:req.session.userName,role:req.session.userRole,title:'Advanced Analytics',section:'instructor-analytics',courses,stats:{totalStudents:new Set(courses.flatMap(c=>c.enrolledStudents.map(String))).size,totalEnrollments,completion,quizAvg:at.length?Math.round(at.reduce((n,x)=>n+x.percentage,0)/at.length):0,attendance:att.length?Math.round(att.filter(x=>x.status==='present').length/att.length*100):0}});
+    }
+});
+
+// Instructor profiles
+app.get('/instructors/:id', requireLogin, async(req,res)=>{
+    const instructor=await User.findOne({_id:req.params.id,role:'teacher'},{password:0}).lean(); if(!instructor) return res.status(404).send('Instructor not found');
+    const courses=await Course.find({teacherId:instructor._id}).lean(); const reviewCount=courses.reduce((n,c)=>n+c.reviews.length,0); const rating=reviewCount?Math.round(courses.reduce((n,c)=>n+c.reviews.reduce((a,r)=>a+r.rating,0),0)/reviewCount*10)/10:0;
+    res.render('feature',{name:req.session.userName,role:req.session.userRole,title:instructor.name+' — Instructor',section:'instructor-profile',instructor,courses,stats:{students:new Set(courses.flatMap(c=>c.enrolledStudents.map(String))).size,rating,reviewCount}});
+});
+
+// Messaging
+app.get('/messages', requireLogin, async(req,res)=>{
+    const messages=await Message.find({$or:[{senderId:req.session.userId},{receiverId:req.session.userId}]}).populate('senderId','name role').populate('receiverId','name role').sort({createdAt:-1}).lean();
+    const users=await User.find({_id:{$ne:req.session.userId}},{name:1,role:1,email:1}).sort({name:1}).lean();
+    res.render('feature',{name:req.session.userName,role:req.session.userRole,userId:req.session.userId,title:'Messages',section:'messages',messages,users});
+});
+app.post('/messages', requireLogin, async(req,res)=>{if(!req.body.receiverId||!req.body.body)return res.redirect('/messages');await Message.create({senderId:req.session.userId,receiverId:req.body.receiverId,body:req.body.body});await createNotification(req.body.receiverId,'system','New message',`${req.session.userName} sent you a message.`,`/messages`);res.redirect('/messages');});
+app.post('/messages/:id/read', requireLogin, async(req,res)=>{await Message.updateOne({_id:req.params.id,receiverId:req.session.userId},{readAt:new Date()});res.redirect('/messages');});
+
+// Reports / complaints
+app.post('/reports', requireLogin, async(req,res)=>{await Report.create({reporterId:req.session.userId,courseId:req.body.courseId||null,targetUserId:req.body.targetUserId||null,reason:req.body.reason,details:req.body.details||''});await createNotification(req.session.userId,'system','Report submitted','Your report was sent to an administrator.','/dashboard');res.redirect(req.get('referer')||'/dashboard');});
+app.get('/admin/reports', requireLogin, requireRole('admin'), async(req,res)=>{const reports=await Report.find().populate('reporterId','name email').populate('courseId','title').populate('targetUserId','name').sort({createdAt:-1}).lean();res.render('feature',{name:req.session.userName,role:req.session.userRole,title:'Reports & Complaints',section:'reports',reports});});
+app.post('/admin/reports/:id/resolve', requireLogin, requireRole('admin'), async(req,res)=>{await Report.findByIdAndUpdate(req.params.id,{status:'resolved'});res.redirect('/admin/reports');});
+
+// Badge automation endpoint can be called after learning/quiz completion
+app.post('/badges/check', requireLogin, async(req,res)=>{
+    const uid=req.session.userId; const courses=await Course.find({enrolledStudents:uid}).lean(); const completed=courses.filter(c=>c.completedStudents.some(x=>String(x)===String(uid))).length;
+    if(completed>=1) await awardBadge(uid,'course-completed','Course Completed','🏆');
+    if(completed>=5) await awardBadge(uid,'five-courses','5 Courses Completed','📚');
+    const at=await QuizAttempt.find({userId:uid}).lean(); if(at.some(x=>x.percentage>=90)) await awardBadge(uid,'quiz-master','Quiz Master','⭐');
+    const attendance=await Attendance.find({studentId:uid}).lean(); if(attendance.length&&attendance.filter(x=>x.status==='present').length/attendance.length>=.9) await awardBadge(uid,'attendance90','90% Attendance','🎯');
+    res.redirect('/my-learning-tools');
 });
 
 // ─────────────────────────────────────────────────────────
