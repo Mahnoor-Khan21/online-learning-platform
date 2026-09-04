@@ -1,26 +1,56 @@
-<!-- _navbar.ejs: Reusable top navbar partial -->
+<!-- LearnHub LMS sidebar + topbar -->
+<aside class="app-sidebar">
+  <a href="/dashboard" class="sidebar-brand"><span class="brand-mark">L</span><span>Learn<span>Hub</span></span></a>
+  <div class="sidebar-role"><span class="role-dot"></span><%= role === 'teacher' ? 'Instructor Portal' : role === 'admin' ? 'Admin Portal' : 'Student Portal' %></div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-label">MAIN</div>
+    <a href="/dashboard" class="sidebar-link <%= active === 'dashboard' ? 'active' : '' %>"><span>⌂</span>Dashboard</a>
+    <a href="/courses" class="sidebar-link <%= active === 'courses' ? 'active' : '' %>"><span>▦</span>Courses</a>
+    <% if (role === 'student') { %>
+      <a href="/my-courses" class="sidebar-link <%= active === 'my-courses' ? 'active' : '' %>"><span>▣</span>My Learning</a>
+      <a href="/calendar" class="sidebar-link"><span>□</span>Calendar</a>
+      <a href="/analytics" class="sidebar-link"><span>◒</span>Performance</a>
+      <a href="/my-learning-tools" class="sidebar-link"><span>☆</span>My Tools</a>
+      <a href="/quiz-history" class="sidebar-link"><span>✓</span>Quiz History</a>
+    <% } else if (role === 'teacher') { %>
+      <a href="/courses/add" class="sidebar-link"><span>＋</span>Create Course</a>
+      <a href="/instructor/students" class="sidebar-link"><span>♙</span>Students</a>
+      <a href="/calendar" class="sidebar-link"><span>□</span>Live Classes</a>
+      <a href="/analytics" class="sidebar-link"><span>◒</span>Analytics</a>
+    <% } else { %>
+      <a href="/admin/users" class="sidebar-link"><span>♙</span>Users</a>
+      <a href="/admin/courses" class="sidebar-link"><span>▦</span>Course Management</a>
+      <a href="/admin/enrollments" class="sidebar-link"><span>🎓</span>Enrollments</a>
+      <a href="/admin/attendance" class="sidebar-link"><span>✓</span>Attendance</a>
+      <a href="/admin/reports" class="sidebar-link"><span>⚑</span>Reports</a>
+      <a href="/analytics" class="sidebar-link"><span>◒</span>Analytics</a>
+    <% } %>
+    <div class="sidebar-label">COMMUNITY</div>
+    <a href="/messages" class="sidebar-link"><span>◌</span>Messages</a>
+    <a href="/notifications" class="sidebar-link"><span>♢</span>Notifications</a>
+    <a href="/profile" class="sidebar-link <%= active === 'profile' ? 'active' : '' %>"><span>◯</span>Profile</a>
+    <% if (role === 'admin') { %><div class="sidebar-label">ADMIN</div><a href="/admin/categories" class="sidebar-link"><span>⌗</span>Categories</a><a href="/admin/quizzes" class="sidebar-link"><span>?</span>Quiz Management</a><a href="/admin/reviews" class="sidebar-link"><span>★</span>Reviews</a><% } %>
+  </nav>
+  <div class="sidebar-bottom"><a href="/logout-confirm" class="sidebar-logout"><span>↪</span>Sign out</a></div>
+</aside>
+
 <nav class="navbar">
-  <a href="/dashboard" class="navbar-logo">Learn<span>Hub</span></a>
-  <div class="navbar-links">
-    <a href="/dashboard" class="navbar-link <%= active === 'dashboard' ? 'active' : '' %>">Dashboard</a>
-    <a href="/courses" class="navbar-link <%= active === 'courses' ? 'active' : '' %>">Courses</a>
-    <a href="/calendar" class="navbar-link">Calendar</a><a href="/analytics" class="navbar-link">Analytics</a><a href="/messages" class="navbar-link">Messages</a><% if (role === 'student') { %><a href="/my-learning-tools" class="navbar-link">My Tools</a><a href="/my-courses" class="navbar-link <%= active === 'my-courses' ? 'active' : '' %>">My Courses</a><a href="/quiz-history" class="navbar-link <%= active === 'quiz-history' ? 'active' : '' %>">Quiz History</a><% } %>
-    <a href="/profile" class="navbar-link <%= active === 'profile' ? 'active' : '' %>">Profile</a>
-    <% if (role === 'teacher') { %><a href="/calendar" class="navbar-link">Classes</a><a href="/analytics" class="navbar-link">Analytics</a><a href="/courses/add" class="navbar-link">Create Course</a><% } %><% if (role === 'admin') { %><a href="/calendar" class="navbar-link">Calendar</a><a href="/analytics" class="navbar-link">Analytics</a><a href="/admin/reports" class="navbar-link">Reports</a><a href="/admin/attendance" class="navbar-link">Attendance</a><a href="/admin/users" class="navbar-link <%= active === 'users' ? 'active' : '' %>">Admin</a><% } %>
-  </div>
+  <div class="mobile-brand"><a href="/dashboard" class="navbar-logo">Learn<span>Hub</span></a></div>
+  <div class="topbar-title"><span class="topbar-kicker">LEARNHUB</span><strong><%= role === 'teacher' ? 'Instructor Workspace' : role === 'admin' ? 'Administration' : 'Learning Workspace' %></strong></div>
   <div class="navbar-right">
+    <div class="topbar-search"><span>⌕</span><input aria-label="Search" placeholder="Search courses, lessons..." onkeydown="if(event.key==='Enter'){location.href='/courses?search='+encodeURIComponent(this.value)}"></div>
     <div class="notification-menu" id="notificationMenu">
-      <button class="notification-bell" type="button" aria-label="Notifications" aria-expanded="false" onclick="toggleNotifications()">🔔<% if (notificationUnreadCount > 0) { %><span class="notification-badge"><%= notificationUnreadCount > 99 ? '99+' : notificationUnreadCount %></span><% } %></button>
+      <button class="notification-bell" type="button" aria-label="Notifications" aria-expanded="false" onclick="toggleNotifications()">♢<% if (notificationUnreadCount > 0) { %><span class="notification-badge"><%= notificationUnreadCount > 99 ? '99+' : notificationUnreadCount %></span><% } %></button>
       <div class="notification-dropdown" id="notificationDropdown">
         <div class="notification-dropdown-head"><strong>Notifications</strong><a href="/notifications">View all</a></div>
-        <% if (!notificationItems.length) { %><div class="notification-dropdown-empty">🔔<span>No notifications yet</span></div><% } %>
-        <% notificationItems.forEach(n => { const icon = ({course:'📚',enrollment:'🎓',quiz:'📝',completion:'🏆',certificate:'📜',announcement:'📢',system:'🔔'})[n.type] || '🔔'; %>
+        <% if (!notificationItems.length) { %><div class="notification-dropdown-empty">♢<span>No notifications yet</span></div><% } %>
+        <% notificationItems.forEach(n => { const icon = ({course:'▦',enrollment:'🎓',quiz:'✓',completion:'🏆',certificate:'▤',announcement:'⚑',system:'♢'})[n.type] || '♢'; %>
           <div class="notification-item <%= n.readAt ? 'is-read' : 'is-unread' %>"><div class="notification-icon notification-type-<%= n.type %>"><%= icon %></div><div class="notification-item-content"><a href="<%= n.link || '/notifications' %>" onclick="markNotificationRead('<%= n._id %>')"><strong><%= n.title %></strong><span><%= n.message %></span><small><%= new Date(n.createdAt).toLocaleString() %></small></a><% if(!n.readAt){ %><button type="button" class="notification-read-btn" onclick="event.preventDefault();event.stopPropagation();markNotificationRead('<%= n._id %>')">Mark read</button><% } %></div></div>
         <% }) %>
         <div class="notification-dropdown-foot"><form action="/notifications/read-all" method="POST"><button type="submit">Mark all as read</button></form><a href="/notifications">View all notifications →</a></div>
       </div>
     </div>
-    <span class="navbar-user">👋 <%= name %></span><span class="badge badge-<%= role %>"><%= role === 'teacher' ? 'Instructor' : role === 'admin' ? 'Admin' : 'Student' %></span><a href="/logout-confirm" class="btn-logout">Logout</a>
+    <a class="topbar-user" href="/profile"><span class="topbar-avatar"><%= (name || 'U').charAt(0).toUpperCase() %></span><span><strong><%= name %></strong><small><%= role === 'teacher' ? 'Instructor' : role === 'admin' ? 'Administrator' : 'Student' %></small></span></a>
   </div>
 </nav>
 <script>
