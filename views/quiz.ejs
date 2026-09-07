@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><%=quiz.name%> — LearnHub</title><link rel="stylesheet" href="/style.css"></head>
+<html lang="en"><head>
+    <script>(function(){try{var t=localStorage.getItem('learnhub-theme');if(!t&&window.matchMedia)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><%=quiz.name%> — LearnHub</title><link rel="stylesheet" href="/style.css"></head>
 <body class="app-body"><%- include('_navbar',{active:'courses',name,role}) %>
 <main class="page-content quiz-page"><a class="back-link" href="/courses/<%=course._id%>/learn">← Back to Learning</a>
 <div class="quiz-shell white-card"><div class="quiz-top"><div><span class="course-tag"><%=course.title%></span><h1><%=quiz.name%></h1></div><span id="quizCounter">Question 1 of <%=quiz.questions.length%></span></div>
