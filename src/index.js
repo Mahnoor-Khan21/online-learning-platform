@@ -15,6 +15,29 @@ const { sendVerificationEmail, sendPasswordResetEmail } = require('./email');
 const crypto = require('crypto');
 const multer = require('multer');
 const PDFDocument = require('pdfkit');
+const { v2: cloudinary } = require('cloudinary');
+
+// Cloudinary is used for course videos so uploads remain available after Vercel deployments.
+if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+    cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET
+    });
+}
+
+function uploadVideoBuffer(buffer, mimetype) {
+    return new Promise((resolve, reject) => {
+        if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+            return reject(new Error('Video upload is not configured. Add the Cloudinary environment variables first.'));
+        }
+        const stream = cloudinary.uploader.upload_stream(
+            { resource_type: 'video', folder: 'learnhub/course-videos' },
+            (error, result) => error ? reject(error) : resolve(result.secure_url)
+        );
+        stream.end(buffer);
+    });
+}
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/learning-platform';
 const SESSION_SECRET = process.env.SESSION_SECRET;
@@ -72,24 +95,49 @@ const profileUpload = multer({
 
 const courseUpload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 2 * 1024 * 1024 },
+    limits: { fileSize: 50 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
-        const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-        if (!allowed.includes(file.mimetype)) return cb(new Error('Only JPG, PNG, WEBP, and GIF course thumbnails are allowed.'));
+        const allowed = [
+            'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+            'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'
+        ];
+        if (!allowed.includes(file.mimetype)) return cb(new Error('Use JPG/PNG/WEBP/GIF for thumbnails or MP4/WebM/OGG/MOV for lesson videos.'));
         cb(null, true);
     }
 });
 
 function handleCourseUpload(req, res, next) {
-    courseUpload.single('thumbnailFile')(req, res, err => {
-        if (!err) return next();
-        const message = err.code === 'LIMIT_FILE_SIZE' ? 'Course thumbnail must be 2 MB or smaller.' : (err.message || 'Could not upload course thumbnail.');
-        return res.status(400).send(message);
+    const fields = [{ name: 'thumbnailFile', maxCount: 1 }];
+    for (let i = 0; i < 20; i++) fields.push({ name: `lessonVideo${i}`, maxCount: 1 });
+
+    courseUpload.fields(fields)(req, res, err => {
+        if (err) {
+            const message = err.code === 'LIMIT_FILE_SIZE'
+                ? 'Each uploaded course video must be 50 MB or smaller.'
+                : (err.message || 'Could not upload course media.');
+            return res.status(400).send(message);
+        }
+
+        const thumb = req.files?.thumbnailFile?.[0];
+        if (thumb && thumb.size > 2 * 1024 * 1024) {
+            return res.status(400).send('Course thumbnail must be 2 MB or smaller.');
+        }
+        next();
     });
 }
 
-
 // Convert upload errors into a normal profile-page message instead of a generic 500.
+async function applyUploadedLessonVideos(lessons, files) {
+    const output = [...(lessons || [])];
+    for (let i = 0; i < output.length; i++) {
+        const file = files?.[`lessonVideo${i}`]?.[0];
+        if (!file) continue;
+        if (!file.mimetype.startsWith('video/')) throw new Error(`Lesson ${i + 1} must be a video file.`);
+        output[i].videoUrl = await uploadVideoBuffer(file.buffer, file.mimetype);
+    }
+    return output;
+}
+
 function handleProfileUpload(req, res, next) {
     profileUpload.single('profilePicture')(req, res, (err) => {
         if (!err) return next();
@@ -890,9 +938,10 @@ app.post('/courses/add', requireLogin, requireRole('teacher', 'admin'), handleCo
         if (!title || title.trim().length < 3 || !description || description.trim().length < 10) {
             return res.render('add-course', { name: req.session.userName, role: req.session.userRole, error: 'Title must be at least 3 characters and description at least 10 characters.' });
         }
-        const parsedLessons = parseLessons(lessons);
+        let parsedLessons = parseLessons(lessons);
+        parsedLessons = await applyUploadedLessonVideos(parsedLessons, req.files);
         const newCourse = await Course.create({
-            title: title.trim(), description: description.trim(), thumbnail: req.file ? `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}` : String(thumbnail || '').trim(),
+            title: title.trim(), description: description.trim(), thumbnail: req.files?.thumbnailFile?.[0] ? `data:${req.files.thumbnailFile[0].mimetype};base64,${req.files.thumbnailFile[0].buffer.toString('base64')}` : String(thumbnail || '').trim(),
             category: category || 'General', duration: duration || '4 weeks', level: level || 'Beginner',
             status: req.session.userRole === 'admin' ? 'published' : 'pending',
             learningOutcomes: normalizeList(learningOutcomes), lessons: parsedLessons, quizzes: quizQuestions ? [{ name: String(quizName || 'Course Quiz').trim() || 'Course Quiz', questions: parseQuizzes(quizQuestions) }] : [],
@@ -1203,8 +1252,8 @@ app.post('/courses/:id/edit', requireLogin, requireRole('teacher','admin'), hand
         const course=await Course.findById(req.params.id); if(!course) return res.redirect('/courses'); if(req.session.userRole==='teacher'&&course.teacherId.toString()!==req.session.userId.toString()) return res.status(403).send('Not authorized.');
         const {title,description,category,duration,level,thumbnail,learningOutcomes,lessons,quizName,quizQuestions,status}=req.body;
         if(!title||title.trim().length<3||!description||description.trim().length<10) return res.status(400).send('Invalid course title or description.');
-        course.title=title.trim(); course.description=description.trim(); course.category=category||'General'; course.duration=duration||'4 weeks'; course.level=level||'Beginner'; course.learningOutcomes=normalizeList(learningOutcomes); course.lessons=parseLessons(lessons); course.quizzes=quizQuestions?[{name:String(quizName||'Course Quiz').trim()||'Course Quiz',questions:parseQuizzes(quizQuestions)}]:[];
-        if(req.file) course.thumbnail=`data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`; else if(thumbnail!==undefined) course.thumbnail=String(thumbnail||'').trim();
+        course.title=title.trim(); course.description=description.trim(); course.category=category||'General'; course.duration=duration||'4 weeks'; course.level=level||'Beginner'; course.learningOutcomes=normalizeList(learningOutcomes); course.lessons=await applyUploadedLessonVideos(parseLessons(lessons), req.files); course.quizzes=quizQuestions?[{name:String(quizName||'Course Quiz').trim()||'Course Quiz',questions:parseQuizzes(quizQuestions)}]:[];
+        if(req.files?.thumbnailFile?.[0]) course.thumbnail=`data:${req.files.thumbnailFile[0].mimetype};base64,${req.files.thumbnailFile[0].buffer.toString('base64')}`; else if(thumbnail!==undefined) course.thumbnail=String(thumbnail||'').trim();
         if(req.session.userRole==='admin' && ['draft','pending','published','rejected'].includes(status)) course.status=status;
         else if(req.session.userRole==='teacher' && course.status==='rejected') course.status='pending';
         await course.save();
