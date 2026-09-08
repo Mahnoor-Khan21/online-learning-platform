@@ -127,15 +127,28 @@ function handleCourseUpload(req, res, next) {
 }
 
 // Convert upload errors into a normal profile-page message instead of a generic 500.
-async function applyUploadedLessonVideos(lessons, files) {
+async function applyUploadedLessonVideos(lessons, files, uploadedUrls = {}) {
     const output = [...(lessons || [])];
     for (let i = 0; i < output.length; i++) {
+        // On Vercel, large files are uploaded directly from the browser to Cloudinary.
+        // Only the resulting URL is posted to this serverless function.
+        const directUrl = String(uploadedUrls?.[`uploadedVideoUrl${i}`] || '').trim();
+        if (directUrl) {
+            output[i].videoUrl = directUrl;
+            continue;
+        }
         const file = files?.[`lessonVideo${i}`]?.[0];
         if (!file) continue;
         if (!file.mimetype.startsWith('video/')) throw new Error(`Lesson ${i + 1} must be a video file.`);
         output[i].videoUrl = await uploadVideoBuffer(file.buffer, file.mimetype);
     }
     return output;
+}
+
+function cloudinaryBrowserConfig() {
+    const cloudName = String(process.env.CLOUDINARY_CLOUD_NAME || '').trim();
+    const uploadPreset = String(process.env.CLOUDINARY_UPLOAD_PRESET || '').trim();
+    return { cloudName, uploadPreset, enabled: Boolean(cloudName && uploadPreset) };
 }
 
 function handleProfileUpload(req, res, next) {
@@ -928,7 +941,7 @@ app.get('/my-courses', requireLogin, requireRole('student'), async (req, res) =>
 // Show add course form
 app.get('/courses/add', requireLogin, requireRole('teacher', 'admin'), async (req, res) => {
     const categories = await getCategories();
-    res.render('add-course', { name: req.session.userName, role: req.session.userRole, categories });
+    res.render('add-course', { name: req.session.userName, role: req.session.userRole, categories, cloudinaryUpload: cloudinaryBrowserConfig() });
 });
 
 // Handle add course form
@@ -941,11 +954,12 @@ app.post('/courses/add', requireLogin, requireRole('teacher', 'admin'), handleCo
                 name: req.session.userName,
                 role: req.session.userRole,
                 categories,
+                cloudinaryUpload: cloudinaryBrowserConfig(),
                 error: 'Title must be at least 3 characters and description at least 10 characters.'
             });
         }
         let parsedLessons = parseLessons(lessons);
-        parsedLessons = await applyUploadedLessonVideos(parsedLessons, req.files);
+        parsedLessons = await applyUploadedLessonVideos(parsedLessons, req.files, req.body);
         const newCourse = await Course.create({
             title: title.trim(), description: description.trim(), thumbnail: req.files?.thumbnailFile?.[0] ? `data:${req.files.thumbnailFile[0].mimetype};base64,${req.files.thumbnailFile[0].buffer.toString('base64')}` : String(thumbnail || '').trim(),
             category: category || 'General', duration: duration || '4 weeks', level: level || 'Beginner',
@@ -1257,7 +1271,7 @@ app.get('/instructor/courses/:id/students', requireLogin, requireRole('teacher',
 });
 
 app.get('/courses/:id/edit', requireLogin, requireRole('teacher','admin'), async (req,res)=>{
-    try { const course=await Course.findById(req.params.id).lean(); if(!course) return res.redirect('/courses'); if(req.session.userRole==='teacher'&&course.teacherId.toString()!==req.session.userId.toString()) return res.status(403).render('access-denied',{name:req.session.userName,role:req.session.userRole}); const categories=await getCategories(); res.render('edit-course',{name:req.session.userName,role:req.session.userRole,course,categories}); }
+    try { const course=await Course.findById(req.params.id).lean(); if(!course) return res.redirect('/courses'); if(req.session.userRole==='teacher'&&course.teacherId.toString()!==req.session.userId.toString()) return res.status(403).render('access-denied',{name:req.session.userName,role:req.session.userRole}); const categories=await getCategories(); res.render('edit-course',{name:req.session.userName,role:req.session.userRole,course,categories,cloudinaryUpload:cloudinaryBrowserConfig()}); }
     catch(e){console.error(e);res.redirect('/dashboard');}
 });
 app.post('/courses/:id/edit', requireLogin, requireRole('teacher','admin'), handleCourseUpload, async (req,res)=>{
@@ -1265,7 +1279,7 @@ app.post('/courses/:id/edit', requireLogin, requireRole('teacher','admin'), hand
         const course=await Course.findById(req.params.id); if(!course) return res.redirect('/courses'); if(req.session.userRole==='teacher'&&course.teacherId.toString()!==req.session.userId.toString()) return res.status(403).send('Not authorized.');
         const {title,description,category,duration,level,thumbnail,learningOutcomes,lessons,quizName,quizQuestions,status}=req.body;
         if(!title||title.trim().length<3||!description||description.trim().length<10) return res.status(400).send('Invalid course title or description.');
-        course.title=title.trim(); course.description=description.trim(); course.category=category||'General'; course.duration=duration||'4 weeks'; course.level=level||'Beginner'; course.learningOutcomes=normalizeList(learningOutcomes); course.lessons=await applyUploadedLessonVideos(parseLessons(lessons), req.files); course.quizzes=quizQuestions?[{name:String(quizName||'Course Quiz').trim()||'Course Quiz',questions:parseQuizzes(quizQuestions)}]:[];
+        course.title=title.trim(); course.description=description.trim(); course.category=category||'General'; course.duration=duration||'4 weeks'; course.level=level||'Beginner'; course.learningOutcomes=normalizeList(learningOutcomes); course.lessons=await applyUploadedLessonVideos(parseLessons(lessons), req.files, req.body); course.quizzes=quizQuestions?[{name:String(quizName||'Course Quiz').trim()||'Course Quiz',questions:parseQuizzes(quizQuestions)}]:[];
         if(req.files?.thumbnailFile?.[0]) course.thumbnail=`data:${req.files.thumbnailFile[0].mimetype};base64,${req.files.thumbnailFile[0].buffer.toString('base64')}`; else if(thumbnail!==undefined) course.thumbnail=String(thumbnail||'').trim();
         if(req.session.userRole==='admin' && ['draft','pending','published','rejected'].includes(status)) course.status=status;
         else if(req.session.userRole==='teacher' && course.status==='rejected') course.status='pending';

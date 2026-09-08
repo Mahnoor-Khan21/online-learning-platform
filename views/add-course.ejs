@@ -27,9 +27,9 @@
 
         <div class="white-card" style="max-width:820px;">
 <% if (typeof error !== 'undefined') { %><div class="error-msg" style="margin-bottom:20px;"><%= error %></div><% } %>
-<form action="/courses/add" method="POST" enctype="multipart/form-data">
+<form id="courseForm" action="/courses/add" method="POST" enctype="multipart/form-data">
 <div class="field"><label for="title">Course Title *</label><input id="title" name="title" required minlength="3" placeholder="e.g. Full-Stack JavaScript Masterclass"></div>
-<div class="field"><label for="thumbnail">Course Thumbnail URL</label><input id="thumbnail" name="thumbnail" type="url" placeholder="https://example.com/course-image.jpg"><span class="field-note">Optional image URL.</span><label style="margin-top:8px">Or upload thumbnail</label><input name="thumbnailFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><span class="field-note">JPG/PNG/WEBP/GIF, max 2 MB.</span></div>
+<div class="field"><label for="thumbnail">Course Thumbnail URL</label><input id="thumbnail" name="thumbnail" type="url" placeholder="https://example.com/course-image.jpg"><span class="field-note">Optional image URL.</span><label style="margin-top:8px">Or upload thumbnail</label><input id="thumbnailFile" name="thumbnailFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><span class="field-note">JPG/PNG/WEBP/GIF, max 2 MB. When Cloudinary is configured, the browser uploads it directly so Vercel payload limits are avoided.</span></div>
 <div class="field"><label for="description">Description *</label><textarea id="description" name="description" required minlength="10" placeholder="Explain what students will learn and who the course is for..."></textarea></div>
 <div class="field-row">
     <div class="field">
@@ -59,9 +59,46 @@ Work with APIs and databases
 Deploy a production application"></textarea><span class="field-note">One learning outcome per line.</span></div>
 <div class="field"><label for="lessons">Course Curriculum</label><textarea id="lessons" name="lessons" placeholder="HTML & CSS Foundations | Build the page structure | 25 min | Learn semantic HTML and modern CSS
 JavaScript Essentials | Variables, functions and DOM | 35 min | Practice core JavaScript
-Final Project | Build and deploy a project | 60 min | Put everything together"></textarea><span class="field-note">One lesson per line. Format: <b>Title | Short description | Duration | Video URL | Lesson content</b>. Video URL can be a YouTube link or direct MP4/WebM URL.</span></div><div class="field"><label>Upload Lesson Videos (optional)</label><div style="display:grid;gap:10px;"><label style="font-weight:600">Lesson 1<input name="lessonVideo0" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime"></label><label style="font-weight:600">Lesson 2<input name="lessonVideo1" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime"></label><label style="font-weight:600">Lesson 3<input name="lessonVideo2" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime"></label><label style="font-weight:600">Lesson 4<input name="lessonVideo3" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime"></label><label style="font-weight:600">Lesson 5<input name="lessonVideo4" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime"></label><label style="font-weight:600">Lesson 6<input name="lessonVideo5" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime"></label><label style="font-weight:600">Lesson 7<input name="lessonVideo6" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime"></label><label style="font-weight:600">Lesson 8<input name="lessonVideo7" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime"></label><label style="font-weight:600">Lesson 9<input name="lessonVideo8" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime"></label><label style="font-weight:600">Lesson 10<input name="lessonVideo9" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime"></label></div><span class="field-note">Each uploaded video is saved to Cloudinary and automatically assigned to the matching lesson. MP4/WebM/OGG/MOV, max 50 MB each.</span></div>
+Final Project | Build and deploy a project | 60 min | Put everything together"></textarea><span class="field-note">One lesson per line. Format: <b>Title | Short description | Duration | Video URL | Lesson content</b>. Video URL can be a YouTube link or direct MP4/WebM URL.</span></div><div class="field"><label>Upload Lesson Videos (optional)</label>
+<div style="display:grid;gap:10px;">
+<% for (let i = 0; i < 10; i++) { %><label style="font-weight:600">Lesson <%= i + 1 %><input class="direct-video-upload" data-lesson-index="<%= i %>" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime"></label><% } %>
+</div>
+<span class="field-note">Videos upload directly from your browser to Cloudinary before the course is submitted. This avoids Vercel 413 errors. MP4/WebM/OGG/MOV, max 50 MB each.</span></div>
 <div class="field"><label for="quizName">Quiz Name</label><input id="quizName" name="quizName" placeholder="e.g. Final Course Quiz"></div>
 <div class="field"><label for="quizQuestions">Quiz Questions (optional)</label><textarea id="quizQuestions" name="quizQuestions" placeholder="Question | Option A | Option B | Option C | Option D | Correct Option Number
 What does HTML stand for? | Hyper Text Markup Language | High Text Machine Language | Hyperlink Text Markup Language | Home Tool Markup Language | 0"></textarea><span class="field-note">One question per line. Correct Option Number is <b>0, 1, 2, or 3</b>. Exactly 4 options are required.</span></div>
 <button type="submit" class="btn btn-blue" style="padding:13px 32px;font-size:1rem;">✓ Create Course</button>
-</form></div></div></main></body></html>
+</form></div></div></main><script>
+(function(){
+  const cfg = <%- JSON.stringify(typeof cloudinaryUpload !== 'undefined' ? cloudinaryUpload : { enabled:false }) %>;
+  const form = document.getElementById('courseForm');
+  if (!form) return;
+  const submit = form.querySelector('button[type="submit"]');
+  const status = document.createElement('div');
+  status.className = 'field-note'; status.style.marginTop = '12px';
+  submit.parentNode.insertBefore(status, submit);
+  function addHidden(name, value){ let el=form.querySelector('input[name="'+name+'"]'); if(!el){el=document.createElement('input');el.type='hidden';el.name=name;form.appendChild(el);} el.value=value; }
+  async function upload(file, type){
+    if (!cfg.enabled) throw new Error('Cloudinary direct upload is not configured. Add CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET in Vercel.');
+    const data=new FormData(); data.append('file',file); data.append('upload_preset',cfg.uploadPreset); data.append('folder', type==='video' ? 'learnhub/course-videos' : 'learnhub/course-thumbnails');
+    const endpoint='https://api.cloudinary.com/v1_1/'+encodeURIComponent(cfg.cloudName)+'/'+type+'/upload';
+    const r=await fetch(endpoint,{method:'POST',body:data}); const out=await r.json();
+    if(!r.ok) throw new Error(out.error?.message || 'Cloud upload failed.');
+    return out.secure_url;
+  }
+  form.addEventListener('submit', async function(e){
+    const thumb=document.getElementById('thumbnailFile');
+    const videos=[...form.querySelectorAll('.direct-video-upload')].filter(x=>x.files&&x.files[0]);
+    if (!thumb?.files?.[0] && !videos.length) return;
+    if (!cfg.enabled && !videos.length) return; // thumbnail-only fallback stays available
+    e.preventDefault();
+    if (submit.disabled) return;
+    try {
+      submit.disabled=true; status.textContent='Uploading media securely. Please wait...';
+      if (thumb?.files?.[0]) { status.textContent='Uploading thumbnail...'; addHidden('thumbnail', await upload(thumb.files[0], 'image')); thumb.name=''; }
+      for (let n=0;n<videos.length;n++) { const input=videos[n]; status.textContent='Uploading lesson video '+(n+1)+' of '+videos.length+'...'; addHidden('uploadedVideoUrl'+input.dataset.lessonIndex, await upload(input.files[0], 'video')); }
+      status.textContent='Creating course...'; form.submit();
+    } catch(err) { submit.disabled=false; status.textContent='Upload failed: '+err.message; alert('Upload failed: '+err.message); }
+  });
+})();
+</script></body></html>
