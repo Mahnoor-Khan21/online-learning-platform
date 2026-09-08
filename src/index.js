@@ -936,7 +936,13 @@ app.post('/courses/add', requireLogin, requireRole('teacher', 'admin'), handleCo
     try {
         const { title, description, category, duration, level, thumbnail, learningOutcomes, lessons, quizName, quizQuestions } = req.body;
         if (!title || title.trim().length < 3 || !description || description.trim().length < 10) {
-            return res.render('add-course', { name: req.session.userName, role: req.session.userRole, error: 'Title must be at least 3 characters and description at least 10 characters.' });
+            const categories = await getCategories();
+            return res.status(400).render('add-course', {
+                name: req.session.userName,
+                role: req.session.userRole,
+                categories,
+                error: 'Title must be at least 3 characters and description at least 10 characters.'
+            });
         }
         let parsedLessons = parseLessons(lessons);
         parsedLessons = await applyUploadedLessonVideos(parsedLessons, req.files);
@@ -951,7 +957,14 @@ app.post('/courses/add', requireLogin, requireRole('teacher', 'admin'), handleCo
         res.redirect('/courses');
     } catch (err) {
         console.error('Add course error:', err);
-        res.render('add-course', { name: req.session.userName, role: req.session.userRole, error: 'Could not create course. Please try again.' });
+        let categories = [];
+        try { categories = await getCategories(); } catch (categoryErr) { console.error('Category load error:', categoryErr); }
+        res.status(500).render('add-course', {
+            name: req.session.userName,
+            role: req.session.userRole,
+            categories,
+            error: 'Could not create course. Please try again.'
+        });
     }
 });
 
