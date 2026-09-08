@@ -1,26 +1,32 @@
-# Course video upload setup
+# Cloudinary direct video uploads on Vercel
 
-This version supports uploading lesson videos from the Add Course and Edit Course pages.
+This project uses Cloudinary **unsigned browser-direct uploads** for course thumbnails and lesson videos. The browser uploads media directly to Cloudinary, then submits only the resulting URL to the Vercel app.
 
-- Supported: MP4, WebM, OGG, MOV
-- Maximum: 50 MB per video
-- Videos are uploaded directly from the browser to Cloudinary, then only the resulting URLs are sent to Vercel. This avoids Vercel 413 FUNCTION_PAYLOAD_TOO_LARGE errors.
-- A video upload for Lesson 1 goes to Lesson 1, Lesson 2 to Lesson 2, etc.
-- You can still use YouTube/direct video URLs in the curriculum.
+## Vercel environment variables
 
-## Environment variables
+Set these two variables in Vercel Project Settings → Environment Variables:
 
-Add these to `.env.local` for local development and to Vercel Project Settings → Environment Variables:
-
-```env
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-CLOUDINARY_UPLOAD_PRESET=your_unsigned_upload_preset
+```text
+CLOUDINARY_CLOUD_NAME=your_actual_cloud_name
+CLOUDINARY_UPLOAD_PRESET=your_actual_unsigned_preset_name
 ```
 
-The Cloudinary account must allow video uploads. Do not commit the secret values to GitHub.
+The upload preset must be configured as **Unsigned** in Cloudinary → Settings → Upload → Upload presets.
 
-## Important for Vercel
+### Do not add these for this upload flow
 
-Create an **Unsigned Upload Preset** in Cloudinary and set its name as `CLOUDINARY_UPLOAD_PRESET` in Vercel. The browser uploads videos directly to Cloudinary, so large video files do not pass through the Vercel serverless function.
+```text
+CLOUDINARY_API_KEY
+CLOUDINARY_API_SECRET
+```
+
+The API secret must never be exposed to browser code. This project no longer uses the server-side Cloudinary SDK for course uploads.
+
+## After changing Vercel variables
+
+1. Save the variables.
+2. Redeploy the project.
+3. Open Add Course or Edit Course.
+4. Upload a video.
+
+If Cloudinary returns `Unknown API key`, verify that the **Cloud Name** is the exact Cloudinary cloud name and that the **Upload Preset** name exactly matches an existing **Unsigned** preset in that same Cloudinary account.

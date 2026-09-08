@@ -95,7 +95,7 @@ What does HTML stand for? | Hyper Text Markup Language | High Text Machine Langu
     if (submit.disabled) return;
     try {
       submit.disabled=true; status.textContent='Uploading media securely. Please wait...';
-      if (thumb?.files?.[0]) { status.textContent='Uploading thumbnail...'; addHidden('thumbnail', await upload(thumb.files[0], 'image')); thumb.name=''; }
+      if (thumb?.files?.[0]) { status.textContent='Uploading thumbnail...'; addHidden('thumbnail', await upload(thumb.files[0], 'image')); thumb.removeAttribute('name'); }
       for (let n=0;n<videos.length;n++) { const input=videos[n]; status.textContent='Uploading lesson video '+(n+1)+' of '+videos.length+'...'; addHidden('uploadedVideoUrl'+input.dataset.lessonIndex, await upload(input.files[0], 'video')); }
       status.textContent='Creating course...'; form.submit();
     } catch(err) { submit.disabled=false; status.textContent='Upload failed: '+err.message; alert('Upload failed: '+err.message); }
