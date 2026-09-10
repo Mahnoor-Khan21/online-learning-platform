@@ -1132,8 +1132,12 @@ app.post('/courses/:id/enroll', requireLogin, requireRole('student'), async (req
         const course = await Course.findById(req.params.id);
         if (!course) return res.redirect('/courses');
         const alreadyEnrolled = course.enrolledStudents.some(id => id.toString() === req.session.userId.toString());
-        if (!alreadyEnrolled) { course.enrolledStudents.addToSet(req.session.userId); await course.save(); await createNotification(req.session.userId, 'enrollment', 'Course enrollment confirmed', `You are now enrolled in ${course.title}.`, `/courses/${course._id}/learn`); }
-        res.redirect(`/courses/${course._id}`);
+        if (!alreadyEnrolled) { 
+            course.enrolledStudents.addToSet(req.session.userId); 
+            await course.save(); 
+            await createNotification(req.session.userId, 'enrollment', 'Course enrollment confirmed', `You are now enrolled in ${course.title}.`, `/courses/${course._id}/learn`); 
+        }
+        res.redirect(`/courses/${course._id}/learn`);
     } catch (err) { console.error('Enroll error:', err); res.redirect('/courses'); }
 });
 
