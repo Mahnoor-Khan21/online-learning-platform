@@ -1048,27 +1048,33 @@ app.get('/courses/:id', requireLogin, async (req, res) => {
     }
 });
 
-// Learning page
-app.get('/courses/:id/learn', requireLogin, requireRole('student'), async (req, res) => {
+// Learning page (accessible to enrolled students, course instructor, and admins)
+app.get('/courses/:id/learn', requireLogin, async (req, res) => {
     try {
         const course = await Course.findById(req.params.id).lean();
         if (!course) return res.redirect('/courses');
+        const isOwner = course.teacherId && course.teacherId.toString() === req.session.userId.toString();
+        const isAdmin = req.session.userRole === 'admin';
         const isEnrolled = (course.enrolledStudents || []).some(id => id.toString() === req.session.userId.toString());
-        if (!isEnrolled) return res.redirect(`/courses/${req.params.id}`);
+        if (!isEnrolled && !isOwner && !isAdmin) return res.redirect(`/courses/${req.params.id}`);
+
         const p = (course.progress || []).find(x => x.userId && x.userId.toString() === req.session.userId.toString());
         const completedLessons = p ? (p.completedLessons || []) : [];
         const requestedLesson = Number.isInteger(Number(req.query.lesson)) ? Number(req.query.lesson) : null;
         const lastLesson = p && Number.isInteger(p.currentLesson) ? p.currentLesson : 0;
-        const lessonIndex = course.lessons.length ? Math.max(0, Math.min(requestedLesson === null ? lastLesson : requestedLesson, course.lessons.length - 1)) : 0;
-        const currentLesson = course.lessons[lessonIndex] || null;
-        const progressPercent = course.lessons.length ? Math.round(completedLessons.length / course.lessons.length * 100) : 0;
-        // Remember the lesson the student is viewing so Continue Learning opens here next time.
-        if (p && requestedLesson !== null && requestedLesson !== p.currentLesson) {
-            await Course.updateOne({ _id: course._id, 'progress.userId': req.session.userId }, { $set: { 'progress.$.currentLesson': lessonIndex, 'progress.$.updatedAt': new Date() } });
-        } else if (!p && course.lessons.length) {
-            await Course.updateOne({ _id: course._id }, { $push: { progress: { userId: req.session.userId, completedLessons: [], currentLesson: lessonIndex, updatedAt: new Date() } } });
+        const lessonIndex = (course.lessons || []).length ? Math.max(0, Math.min(requestedLesson === null ? lastLesson : requestedLesson, course.lessons.length - 1)) : 0;
+        const currentLesson = (course.lessons || [])[lessonIndex] || null;
+        const progressPercent = (course.lessons || []).length ? Math.round(completedLessons.length / course.lessons.length * 100) : 0;
+
+        // Remember current lesson for enrolled students
+        if (isEnrolled) {
+            if (p && requestedLesson !== null && requestedLesson !== p.currentLesson) {
+                await Course.updateOne({ _id: course._id, 'progress.userId': req.session.userId }, { $set: { 'progress.$.currentLesson': lessonIndex, 'progress.$.updatedAt': new Date() } });
+            } else if (!p && (course.lessons || []).length) {
+                await Course.updateOne({ _id: course._id }, { $push: { progress: { userId: req.session.userId, completedLessons: [], currentLesson: lessonIndex, updatedAt: new Date() } } });
+            }
         }
-        res.render('course-learn', { name: req.session.userName, role: req.session.userRole, course, completedLessons, progressPercent, lessonIndex, currentLesson });
+        res.render('course-learn', { name: req.session.userName, role: req.session.userRole, course, completedLessons, progressPercent, lessonIndex, currentLesson, isOwner, isAdmin, isEnrolled });
     } catch (err) { console.error('Learning page error:', err); res.redirect('/courses'); }
 });
 
