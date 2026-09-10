@@ -77,7 +77,15 @@
     </div>
     <% if(currentLesson.description){ %><p class="lesson-description"><%=currentLesson.description%></p><% } %>
     <% if(currentLesson.content){ %><div class="lesson-content-box"><%=currentLesson.content%></div><% } %>
-    <% if(course.quizzes && course.quizzes.length){ %><div class="quiz-launch-row"><a class="btn btn-quiz" href="/courses/<%=course._id%>/quiz">📝 Take Course Quiz</a></div><% } %>
+    <% if(course.quizzes && course.quizzes.length){ %>
+      <div class="quiz-launch-row" style="margin:20px 0; background:rgba(13,148,136,0.08); padding:16px; border-radius:14px; border:1px solid rgba(13,148,136,0.2); display:flex; align-items:center; justify-space-between; flex-wrap:wrap; gap:12px">
+        <div>
+          <strong style="color:var(--text); font-size:1.05rem; display:block">📝 Course Assessment Quiz</strong>
+          <span style="font-size:0.88rem; color:var(--muted)">Test your knowledge and unlock your official completion certificate.</span>
+        </div>
+        <a class="btn btn-blue" style="margin-left:auto" href="/courses/<%=course._id%>/quiz">Take Course Quiz →</a>
+      </div>
+    <% } %>
     <div class="learning-actions">
       <% if(lessonIndex>0){ %><a class="btn btn-ghost" href="/courses/<%=course._id%>/learn?lesson=<%=lessonIndex-1%>">← Previous Lesson</a><% } else { %><span></span><% } %>
       <% if(typeof isEnrolled !== 'undefined' && isEnrolled){ %>
@@ -87,7 +95,7 @@
       <% } else { %>
         <span class="badge badge-blue">Preview Mode</span>
       <% } %>
-      <% if(lessonIndex<course.lessons.length-1){ %><a class="btn btn-blue" href="/courses/<%=course._id%>/learn?lesson=<%=lessonIndex+1%>">Next Lesson →</a><% } else { %><a class="btn btn-blue" href="/courses/<%=course._id%>">Course Overview</a><% } %>
+      <% if(lessonIndex<course.lessons.length-1){ %><a class="btn btn-blue" href="/courses/<%=course._id%>/learn?lesson=<%=lessonIndex+1%>">Next Lesson →</a><% } else if(course.quizzes && course.quizzes.length) { %><a class="btn btn-green" href="/courses/<%=course._id%>/quiz">Complete &amp; Take Quiz 📝 →</a><% } else { %><a class="btn btn-blue" href="/courses/<%=course._id%>">Course Overview</a><% } %>
     </div>
   </div>
 <% } else { %><div class="white-card empty-state"><div>🎓</div><h2>Your course is ready</h2><p>The instructor hasn't added any lessons yet.</p></div><% } %>
