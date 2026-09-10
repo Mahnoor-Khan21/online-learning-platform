@@ -27,8 +27,9 @@
             </nav>
 
             <div class="landing-header-actions">
-                <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle Theme">
+                <button type="button" id="themeToggle" class="theme-toggle" aria-label="Toggle dark or light mode" title="Toggle dark/light mode">
                     <span class="theme-toggle-icon">🌙</span>
+                    <span class="theme-toggle-text">Dark</span>
                 </button>
 
                 <% if (typeof userId !== 'undefined' && userId) { %>
@@ -74,10 +75,10 @@
                 </div>
             </div>
 
-            <!-- Hero Image Visual Showcase -->
+            <!-- Hero Image Visual Showcase (Real Photo) -->
             <div class="landing-hero-visual">
                 <div class="hero-image-wrapper">
-                    <img src="/images/hero-banner.png" alt="LearnHub LMS Platform Preview" class="hero-main-img">
+                    <img src="/images/hero-banner.png" alt="Real Student Learning Online on LearnHub" class="hero-main-img">
                     
                     <!-- Floating Badge 1 -->
                     <div class="floating-badge badge-learners">
@@ -264,11 +265,11 @@
         </div>
     </section>
 
-    <!-- Instructor Feature Banner -->
+    <!-- Instructor Feature Banner (Real Photo) -->
     <section id="instructors" class="landing-instructor-banner">
         <div class="instructor-banner-container">
             <div class="instructor-banner-visual">
-                <img src="/images/instructor-feature.png" alt="Become an Instructor on LearnHub">
+                <img src="/images/instructor-feature.png" alt="Real Instructor Teaching on LearnHub">
             </div>
             <div class="instructor-banner-content">
                 <span class="section-eyebrow">BECOME AN INSTRUCTOR</span>
@@ -424,12 +425,28 @@
     </footer>
 
     <script>
-    function toggleTheme() {
-        var current = document.documentElement.getAttribute('data-theme') || 'light';
-        var next = current === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', next);
-        try { localStorage.setItem('learnhub-theme', next); } catch(e) {}
-    }
+    (function(){
+      const key = 'learnhub-theme';
+      const toggle = document.getElementById('themeToggle');
+      const icon = toggle?.querySelector('.theme-toggle-icon');
+      const label = toggle?.querySelector('.theme-toggle-text');
+      function setTheme(theme){
+        document.documentElement.setAttribute('data-theme', theme);
+        try { localStorage.setItem(key, theme); } catch(e){}
+        if(icon) icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+        if(label) label.textContent = theme === 'dark' ? 'Light' : 'Dark';
+        if(toggle) toggle.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
+      }
+      const saved = localStorage.getItem(key);
+      const preferred = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      setTheme(preferred);
+      if(toggle) {
+        toggle.addEventListener('click', function(){
+          const current = document.documentElement.getAttribute('data-theme') || 'light';
+          setTheme(current === 'dark' ? 'light' : 'dark');
+        });
+      }
+    })();
     </script>
 </body>
 </html>
