@@ -231,10 +231,13 @@ html[data-theme="dark"] .landing-body {
 }
 
 .landing-logo {
-    font-size: 1.4rem;
+    font-size: 1.5rem;
     font-weight: 800;
-    color: var(--white);
+    color: #0f172a;
     text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .landing-logo span { color: var(--blue); } /* highlight part of logo */
@@ -254,11 +257,11 @@ html[data-theme="dark"] .landing-body {
 
 .nav-btn-outline {
     background: transparent;
-    color: var(--white);
-    border: 1px solid rgba(255,255,255,.3);
+    color: #0f172a;
+    border: 1px solid #cbd5e1;
 }
 
-.nav-btn-outline:hover { background: rgba(255,255,255,.08); }
+.nav-btn-outline:hover { background: #f1f5f9; }
 
 .nav-btn-fill {
     background: var(--blue);
@@ -266,6 +269,26 @@ html[data-theme="dark"] .landing-body {
 }
 
 .nav-btn-fill:hover { opacity: .9; }
+
+/* Theme Toggle Button */
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 50px;
+    color: #0f172a;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.theme-toggle:hover {
+    background: #e2e8f0;
+}
 
 /* Hero section */
 .hero {
@@ -1986,6 +2009,19 @@ html[data-theme="dark"] .landing-header {
 html[data-theme="dark"] .landing-logo { color: #ffffff; }
 html[data-theme="dark"] .landing-nav-menu a { color: rgba(255, 255, 255, 0.75); }
 html[data-theme="dark"] .landing-nav-menu a:hover { color: #ffffff; }
+html[data-theme="dark"] .nav-btn-outline {
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+html[data-theme="dark"] .nav-btn-outline:hover { background: rgba(255, 255, 255, 0.1); }
+html[data-theme="dark"] .theme-toggle {
+    background: #1e293b;
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+}
+html[data-theme="dark"] .theme-toggle:hover {
+    background: #334155;
+}
 html[data-theme="dark"] .landing-hero-section {
     background: radial-gradient(circle at top center, rgba(91, 98, 255, 0.15) 0%, #0b1020 70%);
 }

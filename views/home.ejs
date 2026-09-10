@@ -5,13 +5,13 @@
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LearnHub — Modern Online Learning Platform & LMS</title>
-    <meta name="description" content="LearnHub is an interactive online learning platform offering HD video lessons, quizzes, certificates, and expert courses.">
+    <title>LearnHub — Online Learning Platform</title>
+    <meta name="description" content="LearnHub is a simple and powerful online learning platform for video courses, quizzes, and certificates.">
     <link rel="stylesheet" href="/style.css">
 </head>
 <body class="landing-body">
 
-    <!-- Top navigation -->
+    <!-- Top Navbar -->
     <header class="landing-header">
         <div class="landing-header-container">
             <a href="/" class="landing-logo">
@@ -27,9 +27,9 @@
             </nav>
 
             <div class="landing-header-actions">
-                <button type="button" id="themeToggle" class="theme-toggle" aria-label="Toggle dark or light mode" title="Toggle dark/light mode">
+                <button type="button" id="themeToggle" class="theme-toggle" aria-label="Toggle Theme">
                     <span class="theme-toggle-icon">🌙</span>
-                    <span class="theme-toggle-text">Dark</span>
+                    <span class="theme-toggle-text">Dark Mode</span>
                 </button>
 
                 <% if (typeof userId !== 'undefined' && userId) { %>
@@ -43,21 +43,21 @@
         </div>
     </header>
 
-    <!-- Hero Section -->
+    <!-- Simple Clean Hero Section -->
     <section class="landing-hero-section">
         <div class="landing-hero-container">
             <div class="landing-hero-content">
                 <div class="hero-badge">
-                    <span class="badge-sparkle">✨</span> Next-Gen Online Learning Platform
+                    <span class="badge-sparkle">✨</span> Interactive Online Learning
                 </div>
-                <h1>Advance Your Skillset With <span>Interactive Online Courses</span></h1>
-                <p>Master Web Development, Data Science, Design, and Tech with HD video lessons, instant quizzes, and industry-recognized certificates.</p>
+                <h1>Learn Anything, <span>Master Any Skill</span></h1>
+                <p>Access high-quality video courses, test your knowledge with interactive quizzes, and earn shareable certificates.</p>
                 
-                <!-- Hero Search Bar -->
+                <!-- Search Bar -->
                 <form action="/courses" method="GET" class="hero-search-box">
                     <span class="search-box-icon">🔍</span>
-                    <input type="text" name="search" placeholder="What do you want to learn today? (e.g. JavaScript, Python, Web Dev)" required>
-                    <button type="submit" class="hero-search-btn">Search Courses</button>
+                    <input type="text" name="search" placeholder="Search courses (e.g. Web Dev, Python, Design...)" required>
+                    <button type="submit" class="hero-search-btn">Search</button>
                 </form>
 
                 <div class="hero-category-chips">
@@ -65,58 +65,24 @@
                     <a href="/courses?category=Web+Development">Web Dev</a>
                     <a href="/courses?category=Programming">Programming</a>
                     <a href="/courses?category=Data+Science">Data Science</a>
-                    <a href="/courses?category=Design">Design</a>
-                </div>
-
-                <div class="hero-trust-highlights">
-                    <div class="trust-item"><span>✓</span> HD Video Player</div>
-                    <div class="trust-item"><span>✓</span> Interactive Quizzes</div>
-                    <div class="trust-item"><span>✓</span> Verified Certificates</div>
                 </div>
             </div>
 
-            <!-- Hero Image Visual Showcase (Real Photo) -->
+            <!-- Realistic Photo Showcase -->
             <div class="landing-hero-visual">
                 <div class="hero-image-wrapper">
-                    <img src="/images/hero-banner.png" alt="Real Student Learning Online on LearnHub" class="hero-main-img">
-                    
-                    <!-- Floating Badge 1 -->
-                    <div class="floating-badge badge-learners">
-                        <div class="badge-icon">🎓</div>
-                        <div>
-                            <strong><%= totalStudents %>+ Active Learners</strong>
-                            <span>Studying on LearnHub</span>
-                        </div>
-                    </div>
-
-                    <!-- Floating Badge 2 -->
-                    <div class="floating-badge badge-rating">
-                        <div class="badge-icon">⭐</div>
-                        <div>
-                            <strong>4.9 Rating</strong>
-                            <span>From 2,500+ reviews</span>
-                        </div>
-                    </div>
-
-                    <!-- Floating Badge 3 -->
-                    <div class="floating-badge badge-cert">
-                        <div class="badge-icon">🏆</div>
-                        <div>
-                            <strong>Instant Certificates</strong>
-                            <span>Shareable & Printable</span>
-                        </div>
-                    </div>
+                    <img src="/images/hero-banner.png" alt="Student studying online" class="hero-main-img">
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Platform Stats Bar -->
+    <!-- Stats Bar -->
     <section class="landing-stats-bar">
         <div class="stats-bar-container">
             <div class="stat-box">
                 <span class="stat-number"><%= totalCourses %>+</span>
-                <span class="stat-title">Published Courses</span>
+                <span class="stat-title">Courses Available</span>
             </div>
             <div class="stat-divider"></div>
             <div class="stat-box">
@@ -130,19 +96,19 @@
             </div>
             <div class="stat-divider"></div>
             <div class="stat-box">
-                <span class="stat-number">99.4%</span>
-                <span class="stat-title">Course Completion Rate</span>
+                <span class="stat-number">100%</span>
+                <span class="stat-title">Verified Certificates</span>
             </div>
         </div>
     </section>
 
-    <!-- Featured Courses Showcase -->
+    <!-- Featured Courses Section -->
     <section class="landing-courses-section">
         <div class="landing-section-header">
             <div>
                 <span class="section-eyebrow">EXPLORE CATALOG</span>
-                <h2>Featured Published Courses</h2>
-                <p>Choose from top-rated courses created by experienced instructors.</p>
+                <h2>Featured Courses</h2>
+                <p>Explore top rated courses taught by verified instructors.</p>
             </div>
             <a href="/courses" class="btn btn-outline-light">View All Courses →</a>
         </div>
@@ -158,7 +124,6 @@
                                 <div class="course-card-placeholder">🎓</div>
                             <% } %>
                             <span class="course-card-category"><%= c.category %></span>
-                            <span class="course-card-level"><%= c.level %></span>
                         </div>
                         <div class="course-card-content">
                             <h3><a href="/courses/<%= c._id %>"><%= c.title %></a></h3>
@@ -166,16 +131,14 @@
                             
                             <div class="course-card-meta">
                                 <span>📖 <%= (c.lessons || []).length %> Lessons</span>
-                                <span>⏱ <%= c.duration || '10 min' %></span>
-                                <span>⭐ <strong><%= Number(c.rating || 0).toFixed(1) %></strong> (<%= (c.reviews || []).length %>)</span>
+                                <span>⭐ <%= Number(c.rating || 0).toFixed(1) %></span>
                             </div>
 
                             <div class="course-card-footer">
                                 <div class="course-instructor">
-                                    <span class="instructor-avatar">👤</span>
-                                    <span><%= c.teacherName %></span>
+                                    <span>👤 <%= c.teacherName %></span>
                                 </div>
-                                <a href="/courses/<%= c._id %>" class="btn btn-sm btn-blue">Explore Course</a>
+                                <a href="/courses/<%= c._id %>" class="btn btn-sm btn-blue">View Course</a>
                             </div>
                         </div>
                     </div>
@@ -183,9 +146,9 @@
             <% } else { %>
                 <div class="landing-empty-courses">
                     <span>📚</span>
-                    <h3>New Courses Arriving Soon</h3>
-                    <p>Instructors are currently publishing exciting new courses!</p>
-                    <a href="/courses" class="btn btn-blue">Browse All Courses</a>
+                    <h3>Courses Available Soon</h3>
+                    <p>Instructors are currently publishing courses.</p>
+                    <a href="/courses" class="btn btn-blue">Browse Catalog</a>
                 </div>
             <% } %>
         </div>
@@ -194,252 +157,132 @@
     <!-- Categories Grid -->
     <section id="categories" class="landing-categories-section">
         <div class="landing-section-header center">
-            <span class="section-eyebrow">TOP SUBJECTS</span>
-            <h2>Explore Popular Categories</h2>
-            <p>Find courses tailored to your skills and career goals</p>
+            <span class="section-eyebrow">POPULAR SUBJECTS</span>
+            <h2>Course Categories</h2>
+            <p>Select a topic to start learning today</p>
         </div>
 
         <div class="landing-category-grid">
             <a href="/courses?category=Web+Development" class="category-card">
                 <span class="cat-icon">💻</span>
                 <h3>Web Development</h3>
-                <p>HTML, CSS, JavaScript, React, Node.js & Full-Stack</p>
+                <p>HTML, CSS, JavaScript, React & Backend</p>
             </a>
             <a href="/courses?category=Programming" class="category-card">
                 <span class="cat-icon">⚡</span>
                 <h3>Programming</h3>
-                <p>Python, C++, Java, Data Structures & Algorithms</p>
+                <p>Python, C++, Java & Computer Science</p>
             </a>
             <a href="/courses?category=Data+Science" class="category-card">
                 <span class="cat-icon">📊</span>
                 <h3>Data Science</h3>
-                <p>Machine Learning, SQL, Big Data & Analytics</p>
+                <p>Machine Learning, SQL & Data Analytics</p>
             </a>
             <a href="/courses?category=Design" class="category-card">
                 <span class="cat-icon">🎨</span>
                 <h3>UI/UX Design</h3>
-                <p>Figma, Web Design, Prototyping & Visual Design</p>
-            </a>
-            <a href="/courses?category=Business" class="category-card">
-                <span class="cat-icon">📈</span>
-                <h3>Business</h3>
-                <p>Entrepreneurship, Finance, Project Management</p>
-            </a>
-            <a href="/courses?category=Marketing" class="category-card">
-                <span class="cat-icon">🚀</span>
-                <h3>Digital Marketing</h3>
-                <p>SEO, Social Media, Growth Hacking & Content Strategy</p>
+                <p>Figma, Prototyping & Visual Design</p>
             </a>
         </div>
     </section>
 
-    <!-- Key LMS Features Section -->
-    <section id="features" class="landing-features-section">
-        <div class="landing-section-header center">
-            <span class="section-eyebrow">WHY LEARNHUB</span>
-            <h2>Everything You Need for Effective Learning</h2>
-            <p>Designed for seamless video streaming, progress tracking, and certificate achievements</p>
-        </div>
-
-        <div class="landing-features-grid">
-            <div class="lms-feature-card">
-                <div class="lms-feature-icon">📹</div>
-                <h3>HD Cloudinary Video Streaming</h3>
-                <p>High quality video playback direct from Cloudinary CDN with lesson progress memory and mobile controls.</p>
-            </div>
-            <div class="lms-feature-card">
-                <div class="lms-feature-icon">📝</div>
-                <h3>Interactive Quiz Assessment</h3>
-                <p>Test your knowledge with custom multi-choice quizzes, instant scoring, and retake capabilities.</p>
-            </div>
-            <div class="lms-feature-card">
-                <div class="lms-feature-icon">🏆</div>
-                <h3>Verified Completion Certificates</h3>
-                <p>Earn official course completion certificates with unique verification IDs, ready to print or share.</p>
-            </div>
-            <div class="lms-feature-card">
-                <div class="lms-feature-icon">📈</div>
-                <h3>Real-Time Student Analytics</h3>
-                <p>Track your lesson progress percentage, completed quizzes, and active learning milestones on your dashboard.</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Instructor Feature Banner (Real Photo) -->
+    <!-- Instructor Banner -->
     <section id="instructors" class="landing-instructor-banner">
         <div class="instructor-banner-container">
             <div class="instructor-banner-visual">
-                <img src="/images/instructor-feature.png" alt="Real Instructor Teaching on LearnHub">
+                <img src="/images/instructor-feature.png" alt="Instructor teaching on LearnHub">
             </div>
             <div class="instructor-banner-content">
-                <span class="section-eyebrow">BECOME AN INSTRUCTOR</span>
-                <h2>Share Your Knowledge & Build Your Online Academy</h2>
-                <p>Join thousands of educators who create engaging video courses on LearnHub. Upload lesson videos, design quizzes, and inspire students globally.</p>
-                <ul class="instructor-checklist">
-                    <li>✓ Direct Cloudinary video uploads up to 50 MB per lesson</li>
-                    <li>✓ Full course management studio & student tracking</li>
-                    <li>✓ Review system & rating feedback from enrolled students</li>
-                </ul>
+                <span class="section-eyebrow">FOR TEACHERS</span>
+                <h2>Teach & Share Knowledge on LearnHub</h2>
+                <p>Create your course, upload video lessons via Cloudinary, add quizzes, and guide students toward completion.</p>
                 <div class="instructor-cta-buttons">
-                    <a href="/signup" class="btn btn-blue btn-lg">Start Teaching Free →</a>
-                    <a href="/login" class="btn btn-outline-light btn-lg">Instructor Log In</a>
+                    <a href="/signup" class="btn btn-blue btn-lg">Start Teaching Today →</a>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Testimonials Section -->
-    <section class="landing-testimonials-section">
-        <div class="landing-section-header center">
-            <span class="section-eyebrow">SUCCESS STORIES</span>
-            <h2>Loved by Students & Instructors</h2>
-            <p>See what learners have achieved using LearnHub</p>
-        </div>
-
-        <div class="landing-testimonials-grid">
-            <div class="testimonial-card">
-                <div class="stars">★★★★★</div>
-                <p>"LearnHub made studying web development so effortless! The Cloudinary video player is smooth, and the quiz at the end helped me land my first junior developer role."</p>
-                <div class="testimonial-user">
-                    <div class="user-avatar">AH</div>
-                    <div>
-                        <strong>Ali Hassan</strong>
-                        <span>Full-Stack Student</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="testimonial-card">
-                <div class="stars">★★★★★</div>
-                <p>"As an instructor, publishing my JavaScript course on LearnHub was a breeze. Direct video uploading works flawlessly, and students love the certificate feature!"</p>
-                <div class="testimonial-user">
-                    <div class="user-avatar">SR</div>
-                    <div>
-                        <strong>Sara Rashid</strong>
-                        <span>Senior Tech Instructor</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="testimonial-card">
-                <div class="stars">★★★★★</div>
-                <p>"The progress tracking keeps me motivated every day. Completing lessons and receiving the certificate gave me so much confidence in my new skills!"</p>
-                <div class="testimonial-user">
-                    <div class="user-avatar">UK</div>
-                    <div>
-                        <strong>Usman Khan</strong>
-                        <span>Data Science Learner</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- FAQ Section -->
+    <!-- Simple FAQ Accordion -->
     <section id="faq" class="landing-faq-section">
         <div class="landing-section-header center">
-            <span class="section-eyebrow">FREQUENTLY ASKED QUESTIONS</span>
-            <h2>Got Questions? We Have Answers</h2>
-            <p>Everything you need to know about joining LearnHub</p>
+            <span class="section-eyebrow">QUESTIONS</span>
+            <h2>Frequently Asked Questions</h2>
         </div>
 
         <div class="landing-faq-container">
             <details class="faq-item" open>
-                <summary class="faq-question">How do I start learning on LearnHub?</summary>
+                <summary class="faq-question">How do I enroll in a course?</summary>
                 <div class="faq-answer">
-                    Simply click "Join for Free", create a student account, browse our published course catalog, and click "Enroll Now". You will get instant access to video lessons and quizzes.
+                    Sign up for a free student account, select any course, and click "Enroll Now" to access video lessons immediately.
                 </div>
             </details>
 
             <details class="faq-item">
-                <summary class="faq-question">Are certificates included when I finish a course?</summary>
+                <summary class="faq-question">How do I get a certificate?</summary>
                 <div class="faq-answer">
-                    Yes! Once you complete 100% of a course's lessons and pass the final course quiz (with a score of 60% or higher), a verified certificate will automatically unlock on your profile.
+                    Complete all lessons in a course and pass the course quiz with at least 60% score to receive your certificate.
                 </div>
             </details>
 
             <details class="faq-item">
-                <summary class="faq-question">How can I become a course instructor?</summary>
+                <summary class="faq-question">Can I create my own course?</summary>
                 <div class="faq-answer">
-                    Sign up or log into your account and submit a course through the "Create Course" studio. Instructors can upload lesson videos, add custom quizzes, and monitor student completion stats.
-                </div>
-            </details>
-
-            <details class="faq-item">
-                <summary class="faq-question">Can I watch videos on mobile devices?</summary>
-                <div class="faq-answer">
-                    Absoloutely! LearnHub is fully responsive. Videos stream smoothly on iPhones, Android devices, tablets, and laptops.
+                    Yes! Instructors can create courses, upload HD lesson videos, and build custom quizzes from the instructor studio.
                 </div>
             </details>
         </div>
     </section>
 
-    <!-- CTA Footer Banner -->
-    <section class="landing-cta-banner">
-        <div class="cta-banner-container">
-            <h2>Ready to Start Your Learning Journey?</h2>
-            <p>Join thousands of students and instructors today. Completely free to sign up.</p>
-            <div class="cta-banner-buttons">
-                <a href="/signup" class="btn btn-blue btn-lg">Get Started Free Today →</a>
-                <a href="/courses" class="btn btn-outline-light btn-lg">Explore All Courses</a>
-            </div>
-        </div>
-    </section>
-
-    <!-- Landing Footer -->
+    <!-- Footer -->
     <footer class="landing-footer">
         <div class="landing-footer-container">
             <div class="footer-brand">
                 <a href="/" class="landing-logo">
                     <span class="logo-icon">🎓</span> Learn<span class="logo-accent">Hub</span>
                 </a>
-                <p>Empowering learners and educators worldwide with high quality video lessons, quizzes, and verified certificates.</p>
+                <p>Online learning platform for video courses, quizzes, and certificates.</p>
             </div>
 
             <div class="footer-links-group">
-                <h4>Platform</h4>
-                <a href="/courses">Browse Courses</a>
-                <a href="#categories">Top Categories</a>
-                <a href="#features">Key Features</a>
-                <a href="/signup">Student Signup</a>
+                <h4>Explore</h4>
+                <a href="/courses">All Courses</a>
+                <a href="#categories">Categories</a>
+                <a href="/signup">Sign Up</a>
             </div>
 
             <div class="footer-links-group">
                 <h4>Instructors</h4>
-                <a href="/signup">Teach on LearnHub</a>
-                <a href="/login">Instructor Portal</a>
-                <a href="/courses/add">Create Course</a>
-            </div>
-
-            <div class="footer-links-group">
-                <h4>Account</h4>
+                <a href="/signup">Become an Instructor</a>
                 <a href="/login">Log In</a>
-                <a href="/signup">Create Account</a>
-                <a href="/forgot-password">Forgot Password</a>
             </div>
         </div>
 
         <div class="footer-bottom">
-            <p>© 2026 LearnHub. All rights reserved. Built for world-class online learning.</p>
+            <p>© 2026 LearnHub. All rights reserved.</p>
         </div>
     </footer>
 
+    <!-- Theme Toggle Script -->
     <script>
     (function(){
       const key = 'learnhub-theme';
       const toggle = document.getElementById('themeToggle');
       const icon = toggle?.querySelector('.theme-toggle-icon');
       const label = toggle?.querySelector('.theme-toggle-text');
+      
       function setTheme(theme){
         document.documentElement.setAttribute('data-theme', theme);
         try { localStorage.setItem(key, theme); } catch(e){}
         if(icon) icon.textContent = theme === 'dark' ? '☀️' : '🌙';
-        if(label) label.textContent = theme === 'dark' ? 'Light' : 'Dark';
+        if(label) label.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
         if(toggle) toggle.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
       }
+      
       const saved = localStorage.getItem(key);
       const preferred = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
       setTheme(preferred);
+      
       if(toggle) {
         toggle.addEventListener('click', function(){
           const current = document.documentElement.getAttribute('data-theme') || 'light';
