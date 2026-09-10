@@ -79,11 +79,21 @@ What does HTML stand for? | Hyper Text Markup Language | High Text Machine Langu
   submit.parentNode.insertBefore(status, submit);
   function addHidden(name, value){ let el=form.querySelector('input[name="'+name+'"]'); if(!el){el=document.createElement('input');el.type='hidden';el.name=name;form.appendChild(el);} el.value=value; }
   async function upload(file, type){
-    if (!cfg.enabled) throw new Error('Cloudinary direct upload is not configured. Add CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET in Vercel.');
+    if (!cfg.enabled) throw new Error('Cloudinary upload is not configured. Add CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY in Vercel.');
+    // Thumbnails (images ≤ 2 MB): use the secure server proxy — no unsigned preset needed.
+    if (cfg.useProxy && type === 'image') {
+      const data=new FormData(); data.append('file',file);
+      const r=await fetch('/api/cloud-upload',{method:'POST',body:data});
+      const out=await r.json();
+      if(!r.ok) throw new Error(out.error || 'Thumbnail upload failed.');
+      return out.secure_url;
+    }
+    // Videos: direct browser→Cloudinary using unsigned preset (too large for Vercel's body limit).
+    if (!cfg.uploadPreset) throw new Error('Set CLOUDINARY_UPLOAD_PRESET in Vercel for video uploads (create an unsigned preset in the Cloudinary dashboard).');
     const data=new FormData(); data.append('file',file); data.append('upload_preset',cfg.uploadPreset); data.append('folder', type==='video' ? 'learnhub/course-videos' : 'learnhub/course-thumbnails');
     const endpoint='https://api.cloudinary.com/v1_1/'+encodeURIComponent(cfg.cloudName)+'/'+type+'/upload';
     const r=await fetch(endpoint,{method:'POST',body:data}); const out=await r.json();
-    if(!r.ok) throw new Error(out.error?.message || 'Cloud upload failed.');
+    if(!r.ok) throw new Error(out.error?.message || 'Video upload failed.');
     return out.secure_url;
   }
   form.addEventListener('submit', async function(e){

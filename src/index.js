@@ -146,9 +146,15 @@ async function applyUploadedLessonVideos(lessons, files, uploadedUrls = {}) {
 }
 
 function cloudinaryBrowserConfig() {
-    const cloudName = String(process.env.CLOUDINARY_CLOUD_NAME || '').trim();
+    const cloudName    = String(process.env.CLOUDINARY_CLOUD_NAME    || '').trim();
     const uploadPreset = String(process.env.CLOUDINARY_UPLOAD_PRESET || '').trim();
-    return { cloudName, uploadPreset, enabled: Boolean(cloudName && uploadPreset) };
+    const hasApiKey    = Boolean(process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET && cloudName);
+    // Prefer the server-side signed proxy (needs only CLOUDINARY_CLOUD_NAME + API_KEY + API_SECRET).
+    // Fall back to unsigned preset upload if only CLOUD_NAME + UPLOAD_PRESET are set.
+    if (hasApiKey) {
+        return { cloudName, uploadPreset, enabled: true, useProxy: true };
+    }
+    return { cloudName, uploadPreset, enabled: Boolean(cloudName && uploadPreset), useProxy: false };
 }
 
 function handleProfileUpload(req, res, next) {
@@ -254,6 +260,42 @@ function requireRole(...roles) {
         }
     };
 }
+
+// ─────────────────────────────────────────────────────────
+//  CLOUDINARY UPLOAD PROXY  (avoids unsigned-preset requirement)
+// ─────────────────────────────────────────────────────────
+
+// The browser POSTs the raw file here; the server signs the upload with the
+// API secret and forwards it to Cloudinary.  No unsigned preset is needed.
+const proxyUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 55 * 1024 * 1024 } });
+
+app.post('/api/cloud-upload', requireLogin, proxyUpload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No file provided.' });
+        const cloudName = String(process.env.CLOUDINARY_CLOUD_NAME || '').trim();
+        const apiKey    = String(process.env.CLOUDINARY_API_KEY    || '').trim();
+        const apiSecret = String(process.env.CLOUDINARY_API_SECRET || '').trim();
+        if (!cloudName || !apiKey || !apiSecret) {
+            return res.status(503).json({ error: 'Cloudinary is not configured on the server. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in Vercel.' });
+        }
+
+        const resourceType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+        const folder = resourceType === 'video' ? 'learnhub/course-videos' : 'learnhub/course-thumbnails';
+
+        const secureUrl = await new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+                { resource_type: resourceType, folder },
+                (error, result) => error ? reject(error) : resolve(result.secure_url)
+            );
+            stream.end(req.file.buffer);
+        });
+
+        res.json({ secure_url: secureUrl });
+    } catch (err) {
+        console.error('Cloud upload proxy error:', err);
+        res.status(500).json({ error: err.message || 'Upload failed.' });
+    }
+});
 
 // ─────────────────────────────────────────────────────────
 //  PUBLIC ROUTES

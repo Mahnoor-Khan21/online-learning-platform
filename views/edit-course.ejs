@@ -6,7 +6,17 @@
   const form=document.getElementById('courseForm'); if(!form)return;
   const submit=form.querySelector('button[type="submit"]'); const status=document.createElement('div'); status.className='muted'; submit.parentNode.insertBefore(status,submit);
   function addHidden(name,value){let x=form.querySelector('input[name="'+name+'"]');if(!x){x=document.createElement('input');x.type='hidden';x.name=name;form.appendChild(x);}x.value=value;}
-  async function upload(file,type){if(!cfg.enabled)throw new Error('Cloudinary direct upload is not configured. Add CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET in Vercel.');const d=new FormData();d.append('file',file);d.append('upload_preset',cfg.uploadPreset);d.append('folder',type==='video'?'learnhub/course-videos':'learnhub/course-thumbnails');const r=await fetch('https://api.cloudinary.com/v1_1/'+encodeURIComponent(cfg.cloudName)+'/'+type+'/upload',{method:'POST',body:d});const o=await r.json();if(!r.ok)throw new Error(o.error?.message||'Cloud upload failed.');return o.secure_url;}
+  async function upload(file,type){
+    if(!cfg.enabled)throw new Error('Cloudinary is not configured. Add CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY in Vercel.');
+    // Images (thumbnails): use the server proxy — signed upload, no preset needed.
+    if(cfg.useProxy&&type==='image'){const d=new FormData();d.append('file',file);const r=await fetch('/api/cloud-upload',{method:'POST',body:d});const o=await r.json();if(!r.ok)throw new Error(o.error||'Thumbnail upload failed.');return o.secure_url;}
+    // Videos (and fallback): direct browser→Cloudinary using unsigned preset.
+    if(!cfg.uploadPreset)throw new Error('Set CLOUDINARY_UPLOAD_PRESET in Vercel for video uploads (create an unsigned preset in the Cloudinary dashboard).');
+    const d=new FormData();d.append('file',file);d.append('upload_preset',cfg.uploadPreset);d.append('folder',type==='video'?'learnhub/course-videos':'learnhub/course-thumbnails');
+    const r=await fetch('https://api.cloudinary.com/v1_1/'+encodeURIComponent(cfg.cloudName)+'/'+type+'/upload',{method:'POST',body:d});const o=await r.json();
+    if(!r.ok)throw new Error(o.error?.message||'Video upload failed.');
+    return o.secure_url;
+  }
   form.addEventListener('submit',async e=>{const thumb=document.getElementById('thumbnailFile');const vids=[...form.querySelectorAll('.direct-video-upload')].filter(x=>x.files&&x.files[0]);if(!thumb?.files?.[0]&&!vids.length)return;if(!cfg.enabled&&!vids.length)return;e.preventDefault();if(submit.disabled)return;try{submit.disabled=true;if(thumb?.files?.[0]){status.textContent='Uploading thumbnail...';addHidden('thumbnail',await upload(thumb.files[0],'image'));thumb.name='';}for(let n=0;n<vids.length;n++){const v=vids[n];status.textContent='Uploading lesson video '+(n+1)+' of '+vids.length+'...';addHidden('uploadedVideoUrl'+v.dataset.lessonIndex,await upload(v.files[0],'video'));}status.textContent='Saving changes...';form.submit();}catch(err){submit.disabled=false;status.textContent='Upload failed: '+err.message;alert('Upload failed: '+err.message);}});
 })();
 </script></body></html>
