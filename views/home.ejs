@@ -263,7 +263,7 @@
         </div>
     </footer>
 
-    <!-- Theme Toggle Script -->
+    <!-- Theme Toggle & Scroll Animation Script -->
     <script>
     (function(){
       const key = 'learnhub-theme';
@@ -289,6 +289,26 @@
           setTheme(current === 'dark' ? 'light' : 'dark');
         });
       }
+
+      // Scroll Reveal Animations
+      const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+      };
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if(entry.isIntersecting) {
+            entry.target.classList.add('reveal-active');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, observerOptions);
+
+      document.querySelectorAll('.landing-hero-content, .landing-hero-visual, .stat-box, .landing-course-card, .category-card, .lms-feature-card, .instructor-banner-container, .faq-item').forEach(el => {
+        el.classList.add('reveal-on-scroll');
+        observer.observe(el);
+      });
     })();
     </script>
 </body>
