@@ -25,9 +25,35 @@
   </div>
 </nav>
 <script>
-function toggleNotifications(){const m=document.getElementById('notificationMenu'),d=document.getElementById('notificationDropdown');const open=m.classList.toggle('open');d.classList.toggle('open',open);m.querySelector('.notification-bell').setAttribute('aria-expanded',open?'true':'false');}
-async function markNotificationRead(id){try{await fetch('/notifications/'+id+'/read',{method:'POST',headers:{Accept:'application/json'}});}catch(e){} }
-document.addEventListener('click',e=>{const m=document.getElementById('notificationMenu');if(m&&!m.contains(e.target)){m.classList.remove('open');document.getElementById('notificationDropdown').classList.remove('open');}});
+function toggleNotifications(){
+  const m = document.getElementById('notificationMenu');
+  const d = document.getElementById('notificationDropdown');
+  const open = m.classList.toggle('open');
+  d.classList.toggle('open', open);
+  const bell = m.querySelector('.notification-bell');
+  if(bell) {
+    bell.setAttribute('aria-expanded', open ? 'true' : 'false');
+    const badge = bell.querySelector('.notification-badge');
+    if(badge) badge.remove();
+  }
+  if(open) {
+    try {
+      fetch('/notifications/read-all', { credentials: 'same-origin', method: 'POST' });
+    } catch(e){}
+  }
+}
+async function markNotificationRead(id){
+  try {
+    await fetch('/notifications/' + id + '/read', { credentials: 'same-origin', method: 'POST', headers: { Accept: 'application/json' } });
+  } catch(e){}
+}
+document.addEventListener('click', e => {
+  const m = document.getElementById('notificationMenu');
+  if(m && !m.contains(e.target)){
+    m.classList.remove('open');
+    document.getElementById('notificationDropdown').classList.remove('open');
+  }
+});
 
 (function(){
   const key='learnhub-theme';
