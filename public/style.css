@@ -279,11 +279,15 @@ html[data-theme="dark"] .landing-body {
     background: #f1f5f9;
     border: 1px solid #cbd5e1;
     border-radius: 50px;
-    color: #0f172a;
+    color: #0f172a !important;
     font-size: 0.88rem;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
     transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.theme-toggle * {
+    color: #0f172a !important;
 }
 
 .theme-toggle:hover {
@@ -2017,7 +2021,10 @@ html[data-theme="dark"] .nav-btn-outline:hover { background: rgba(255, 255, 255,
 html[data-theme="dark"] .theme-toggle {
     background: #1e293b;
     border-color: rgba(255, 255, 255, 0.2);
-    color: #ffffff;
+    color: #ffffff !important;
+}
+html[data-theme="dark"] .theme-toggle * {
+    color: #ffffff !important;
 }
 html[data-theme="dark"] .theme-toggle:hover {
     background: #334155;
