@@ -302,8 +302,29 @@ app.post('/api/cloud-upload', requireLogin, proxyUpload.single('file'), async (r
 // ─────────────────────────────────────────────────────────
 
 // Landing page
-app.get('/', (req, res) => {
-    res.render('home');
+app.get('/', async (req, res) => {
+    try {
+        const [featuredCourses, totalCourses, totalStudents, totalTeachers, categories] = await Promise.all([
+            Course.find({ status: 'published' }).sort({ rating: -1, enrolledStudents: -1 }).limit(6).lean(),
+            Course.countDocuments({ status: 'published' }),
+            User.countDocuments({ role: 'student' }),
+            User.countDocuments({ role: 'teacher' }),
+            getCategories()
+        ]);
+        res.render('home', {
+            name: req.session.userName || null,
+            role: req.session.userRole || null,
+            userId: req.session.userId || null,
+            featuredCourses: featuredCourses || [],
+            totalCourses: totalCourses || 24,
+            totalStudents: totalStudents || 1250,
+            totalTeachers: totalTeachers || 48,
+            categories: categories || []
+        });
+    } catch (err) {
+        console.error('Home page error:', err);
+        res.render('home', { name: null, role: null, userId: null, featuredCourses: [], totalCourses: 24, totalStudents: 1250, totalTeachers: 48, categories: [] });
+    }
 });
 
 // Show login form
