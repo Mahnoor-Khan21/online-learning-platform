@@ -1,0 +1,30 @@
+<!-- _navbar.ejs: Reusable top navbar partial -->
+<nav class="navbar">
+  <a href="/dashboard" class="navbar-logo">Learn<span>Hub</span></a>
+  <div class="navbar-links">
+    <a href="/dashboard" class="navbar-link <%= active === 'dashboard' ? 'active' : '' %>">Dashboard</a>
+    <a href="/courses" class="navbar-link <%= active === 'courses' ? 'active' : '' %>">Courses</a>
+    <a href="/calendar" class="navbar-link">Calendar</a><a href="/analytics" class="navbar-link">Analytics</a><a href="/messages" class="navbar-link">Messages</a><% if (role === 'student') { %><a href="/my-learning-tools" class="navbar-link">My Tools</a><a href="/my-courses" class="navbar-link <%= active === 'my-courses' ? 'active' : '' %>">My Courses</a><a href="/quiz-history" class="navbar-link <%= active === 'quiz-history' ? 'active' : '' %>">Quiz History</a><% } %>
+    <a href="/profile" class="navbar-link <%= active === 'profile' ? 'active' : '' %>">Profile</a>
+    <% if (role === 'teacher') { %><a href="/calendar" class="navbar-link">Classes</a><a href="/analytics" class="navbar-link">Analytics</a><a href="/courses/add" class="navbar-link">Create Course</a><% } %><% if (role === 'admin') { %><a href="/calendar" class="navbar-link">Calendar</a><a href="/analytics" class="navbar-link">Analytics</a><a href="/admin/reports" class="navbar-link">Reports</a><a href="/admin/attendance" class="navbar-link">Attendance</a><a href="/admin/users" class="navbar-link <%= active === 'users' ? 'active' : '' %>">Admin</a><% } %>
+  </div>
+  <div class="navbar-right">
+    <div class="notification-menu" id="notificationMenu">
+      <button class="notification-bell" type="button" aria-label="Notifications" aria-expanded="false" onclick="toggleNotifications()">🔔<% if (notificationUnreadCount > 0) { %><span class="notification-badge"><%= notificationUnreadCount > 99 ? '99+' : notificationUnreadCount %></span><% } %></button>
+      <div class="notification-dropdown" id="notificationDropdown">
+        <div class="notification-dropdown-head"><strong>Notifications</strong><a href="/notifications">View all</a></div>
+        <% if (!notificationItems.length) { %><div class="notification-dropdown-empty">🔔<span>No notifications yet</span></div><% } %>
+        <% notificationItems.forEach(n => { const icon = ({course:'📚',enrollment:'🎓',quiz:'📝',completion:'🏆',certificate:'📜',announcement:'📢',system:'🔔'})[n.type] || '🔔'; %>
+          <div class="notification-item <%= n.readAt ? 'is-read' : 'is-unread' %>"><div class="notification-icon notification-type-<%= n.type %>"><%= icon %></div><div class="notification-item-content"><a href="<%= n.link || '/notifications' %>" onclick="markNotificationRead('<%= n._id %>')"><strong><%= n.title %></strong><span><%= n.message %></span><small><%= new Date(n.createdAt).toLocaleString() %></small></a><% if(!n.readAt){ %><button type="button" class="notification-read-btn" onclick="event.preventDefault();event.stopPropagation();markNotificationRead('<%= n._id %>')">Mark read</button><% } %></div></div>
+        <% }) %>
+        <div class="notification-dropdown-foot"><form action="/notifications/read-all" method="POST"><button type="submit">Mark all as read</button></form><a href="/notifications">View all notifications →</a></div>
+      </div>
+    </div>
+    <span class="navbar-user">👋 <%= name %></span><span class="badge badge-<%= role %>"><%= role === 'teacher' ? 'Instructor' : role === 'admin' ? 'Admin' : 'Student' %></span><a href="/logout-confirm" class="btn-logout">Logout</a>
+  </div>
+</nav>
+<script>
+function toggleNotifications(){const m=document.getElementById('notificationMenu'),d=document.getElementById('notificationDropdown');const open=m.classList.toggle('open');d.classList.toggle('open',open);m.querySelector('.notification-bell').setAttribute('aria-expanded',open?'true':'false');}
+async function markNotificationRead(id){try{await fetch('/notifications/'+id+'/read',{method:'POST',headers:{Accept:'application/json'}});}catch(e){} }
+document.addEventListener('click',e=>{const m=document.getElementById('notificationMenu');if(m&&!m.contains(e.target)){m.classList.remove('open');document.getElementById('notificationDropdown').classList.remove('open');}});
+</script>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>(function(){try{var t=localStorage.getItem('learnhub-theme');if(!t&&window.matchMedia)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — LearnHub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-body">
+
+    <div class="auth-card">
+        <h2>Login</h2>
+
+        <!-- Show error if login failed -->
+        <% if (typeof error !== 'undefined') { %>
+            <div class="error-msg"><%= error %></div>
+        <% } %>
+
+        <% if (typeof success !== 'undefined') { %>
+            <div class="success-msg"><%= success %></div>
+        <% } %>
+
+        <form action="/login" method="POST">
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input class="auth-input" type="email" id="email" name="email" placeholder="Enter your email" required autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input class="auth-input" type="password" id="password" name="password" placeholder="password" required>
+                <div class="password-help"><a href="/forgot-password">Forgot Password?</a></div>
+            </div>
+            <button type="submit" class="btn-primary">Login</button>
+        </form>
+
+        <% if (typeof showResendVerification !== 'undefined' && showResendVerification) { %>
+            <form action="/resend-verification" method="POST" style="margin-top:12px;">
+                <input type="hidden" name="email" value="<%= verificationEmail || '' %>">
+                <button type="submit" class="btn-primary" style="width:100%;">Resend verification email</button>
+            </form>
+        <% } %>
+
+        <div class="bottom-link">
+            Don't have an account? <a href="/signup">Sign up</a>
+        </div>
+    </div>
+
+</body>
+</html>
