@@ -214,12 +214,19 @@ app.use(async (req, res, next) => {
     res.locals.sessionProfilePic = req.session.userProfilePic || null;
     if (!req.session.userId) return next();
     try {
+        // ── Auto-sync profile picture into session (handles old sessions) ──
+        if (req.session.userProfilePic === undefined) {
+            const u = await User.findById(req.session.userId).select('profilePicture').lean();
+            req.session.userProfilePic = u?.profilePicture || null;
+            res.locals.sessionProfilePic  = req.session.userProfilePic;
+        }
+
         const [unread, items] = await Promise.all([
             Notification.countDocuments({ userId: req.session.userId, readAt: null }),
             Notification.find({ userId: req.session.userId }).sort({ createdAt: -1 }).limit(8).lean()
         ]);
         res.locals.notificationUnreadCount = unread; res.locals.notificationItems = items;
-    } catch (err) { console.error('Notification navbar error:', err.message); }
+    } catch (err) { console.error('Navbar middleware error:', err.message); }
     next();
 });
 
