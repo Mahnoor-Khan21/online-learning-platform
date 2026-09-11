@@ -419,19 +419,215 @@ html[data-theme="dark"] .landing-body {
 .navbar-link:hover { background: rgba(255,255,255,.08); color: var(--white); }
 .navbar-link.active { background: var(--blue); color: var(--white); font-weight: 600; }
 
-/* Right side: role badge + logout */
+/* Right side */
 .navbar-right {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
 }
 
-.navbar-user {
-    font-size: .85rem;
-    color: rgba(255,255,255,.7);
+/* ── Theme toggle (icon only) ── */
+.theme-toggle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,.08);
+    color: rgba(255,255,255,.75);
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .18s;
+    flex-shrink: 0;
+}
+.theme-toggle:hover { background: rgba(255,255,255,.15); }
+/* hide the text label, keep icon only */
+.theme-toggle-text { display: none; }
+
+/* ══════════════════════════════════════════════════════
+   PROFILE AVATAR DROPDOWN
+   Matches modern sites: GitHub, LinkedIn, Notion style
+══════════════════════════════════════════════════════ */
+
+.nav-profile-menu { position: relative; }
+
+/* ── Trigger button ── */
+.nav-profile-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 10px 4px 4px;
+    border-radius: 50px;
+    border: 1.5px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.06);
+    cursor: pointer;
+    color: rgba(255,255,255,.9);
+    transition: background .18s, border-color .18s, box-shadow .18s;
+}
+.nav-profile-btn:hover {
+    background: rgba(255,255,255,.12);
+    border-color: rgba(255,255,255,.25);
+}
+.nav-profile-btn:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
 }
 
-/* Small logout button in navbar */
+/* ── Small avatar circle (trigger) ── */
+.nav-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--blue) 0%, var(--blue2) 100%);
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,.18);
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+}
+.nav-avatar-letter {
+    font-size: .95rem;
+    font-weight: 700;
+    line-height: 1;
+    user-select: none;
+}
+.nav-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Chevron arrow */
+.nav-chevron {
+    color: rgba(255,255,255,.45);
+    flex-shrink: 0;
+    transition: transform .22s cubic-bezier(.4,0,.2,1);
+}
+.nav-profile-menu.open .nav-chevron { transform: rotate(180deg); }
+
+/* ── Dropdown panel ── */
+.nav-profile-dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 12px);
+    width: 280px;
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow:
+        0 0 0 1px rgba(0,0,0,.06),
+        0 8px 16px rgba(0,0,0,.08),
+        0 24px 48px rgba(0,0,0,.12);
+    border: 1px solid rgba(0,0,0,.06);
+    z-index: 500;
+    /* animation */
+    opacity: 0;
+    transform: translateY(-6px) scale(.96);
+    pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+}
+
+.nav-profile-menu.open .nav-profile-dropdown {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: all;
+}
+
+/* Header: big avatar + name + email + badge */
+.nav-profile-header {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 18px 18px 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+.nav-profile-avatar-lg {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--blue), var(--blue2));
+    color: var(--white);
+    font-size: 1.4rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 3px solid rgba(13,148,136,.2);
+}
+
+.nav-profile-info { flex: 1; min-width: 0; }
+
+.nav-profile-fullname {
+    font-size: .93rem;
+    font-weight: 700;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nav-profile-email {
+    font-size: .76rem;
+    color: var(--muted);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Action links in dropdown */
+.nav-profile-actions {
+    padding: 10px 10px 6px;
+}
+
+.nav-profile-action-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    font-size: .88rem;
+    font-weight: 500;
+    color: var(--text);
+    text-decoration: none;
+    transition: background .16s, color .16s;
+}
+
+.nav-profile-action-link:hover {
+    background: #f0fdfa;
+    color: var(--blue);
+}
+
+/* Footer: Logout */
+.nav-profile-footer {
+    padding: 6px 10px 12px;
+    border-top: 1px solid var(--border);
+}
+
+.nav-profile-logout {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    font-size: .88rem;
+    font-weight: 600;
+    color: var(--red);
+    text-decoration: none;
+    transition: background .16s;
+}
+
+.nav-profile-logout:hover { background: #fff1f2; }
+
+/* Keep old .btn-logout for any stray usage */
 .btn-logout {
     padding: 8px 18px;
     background: rgba(239,68,68,.15);
@@ -444,7 +640,6 @@ html[data-theme="dark"] .landing-body {
     cursor: pointer;
     transition: background .18s;
 }
-
 .btn-logout:hover { background: rgba(239,68,68,.3); }
 
 /* ── PAGE CONTENT AREA ── */

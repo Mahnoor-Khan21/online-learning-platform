@@ -211,6 +211,7 @@ async function notifyUsers(userIds, type, title, message, link = '') {
 }
 app.use(async (req, res, next) => {
     res.locals.notificationUnreadCount = 0; res.locals.notificationItems = [];
+    res.locals.sessionProfilePic = req.session.userProfilePic || null;
     if (!req.session.userId) return next();
     try {
         const [unread, items] = await Promise.all([
@@ -382,9 +383,10 @@ app.post('/login', async (req, res) => {
         }
 
         // Save user info in session
-        req.session.userId   = user._id;
-        req.session.userName = user.name;
-        req.session.userRole = user.role;
+        req.session.userId          = user._id;
+        req.session.userName        = user.name;
+        req.session.userRole        = user.role;
+        req.session.userProfilePic  = user.profilePicture || null;
 
         res.redirect('/dashboard');
 
@@ -1437,8 +1439,9 @@ app.post('/profile/update', requireLogin, handleProfileUpload, async (req, res) 
                 `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
         }
 
-        await User.findByIdAndUpdate(req.session.userId, update);
-        req.session.userName = name;
+        const updatedUser = await User.findByIdAndUpdate(req.session.userId, update, { new: true }).lean();
+        req.session.userName       = name;
+        req.session.userProfilePic = updatedUser?.profilePicture || null;
 
         return res.redirect('/profile?success=' + encodeURIComponent('Your profile has been updated successfully.'));
     } catch (err) {
