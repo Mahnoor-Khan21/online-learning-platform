@@ -51,7 +51,7 @@
     <% if(yt){ %>
       <iframe src="https://www.youtube.com/embed/<%=yt[1]%>?rel=0" title="<%=currentLesson.title%>" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
     <% } else if(rawVideo){ %>
-      <video src="<%=rawVideo%>" controls playsinline preload="auto" crossorigin="anonymous" <%= posterUrl ? 'poster="' + posterUrl + '"' : '' %>>
+      <video id="lessonVideo" src="<%=rawVideo%>" controls playsinline preload="metadata" crossorigin="anonymous" <%= posterUrl ? 'poster="' + posterUrl + '"' : '' %>>
         <source src="<%=rawVideo%>" type="video/mp4">
         <source src="<%=rawVideo%>" type="video/webm">
         Your browser does not support video playback.
@@ -69,7 +69,7 @@
         <div class="lesson-counter-wrap">
           <span class="lesson-counter">Lesson <%=lessonIndex+1%> of <%=course.lessons.length%></span>
           <% if(rawVideo){ %><span class="badge badge-blue">📹 Video Included</span><% } %>
-          <% if(currentLesson.duration){ %><span class="badge badge-gray">⏱ <%=currentLesson.duration%></span><% } %>
+          <% if(rawVideo && !yt){ %><span class="badge badge-gray" id="videoDurationBadge">⏱ <span id="videoDurationText"><%= currentLesson.duration || '...' %></span></span><% } else if(currentLesson.duration){ %><span class="badge badge-gray">⏱ <%=currentLesson.duration%></span><% } %>
         </div>
         <h1><%=currentLesson.title%></h1>
       </div>
@@ -102,4 +102,38 @@
 </section>
 </div>
 </main>
-</body></html>
+</body>
+<script>
+// ── Real video duration from actual video file ──
+(function(){
+  const video = document.getElementById('lessonVideo');
+  const durationText = document.getElementById('videoDurationText');
+  if(!video || !durationText) return;
+
+  function formatDuration(seconds){
+    if(!seconds || isNaN(seconds)) return null;
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    if(h > 0) return h + 'h ' + m + 'm';
+    if(m > 0) return m + ' min ' + (s > 0 ? s + ' sec' : '');
+    return s + ' sec';
+  }
+
+  function applyDuration(){
+    const dur = video.duration;
+    if(dur && !isNaN(dur) && isFinite(dur)){
+      const formatted = formatDuration(dur);
+      if(formatted) durationText.textContent = formatted;
+    }
+  }
+
+  if(video.readyState >= 1 && video.duration){
+    applyDuration();
+  } else {
+    video.addEventListener('loadedmetadata', applyDuration);
+    video.addEventListener('durationchange', applyDuration);
+  }
+})();
+</script>
+</html>
