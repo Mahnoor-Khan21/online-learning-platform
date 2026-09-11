@@ -26,7 +26,7 @@
       <span class="lesson-nav-icon"><%=done?'✓':(hasVideo?'▶':i+1)%></span>
       <span class="lesson-nav-copy">
         <strong><%=l.title%></strong>
-        <small><%=l.duration || '10 min'%> <%= hasVideo ? '• 📹 Video' : '' %></small>
+        <small id="dur-<%= i %>"><%=l.duration || '10 min'%> <%= hasVideo ? '• 📹 Video' : '' %></small>
       </span>
     </a>
   <% }) %>
@@ -104,35 +104,59 @@
 </main>
 </body>
 <script>
-// ── Real video duration from actual video file ──
+// ── Load real duration for ALL sidebar lessons ──
 (function(){
-  const video = document.getElementById('lessonVideo');
-  const durationText = document.getElementById('videoDurationText');
-  if(!video || !durationText) return;
+  const lessons = <%- JSON.stringify((course.lessons||[]).map(function(l,i){
+    const url = (l.videoUrl||'').trim();
+    const isYT = /youtube\.com|youtu\.be/.test(url);
+    return { index: i, videoUrl: (!isYT && url) ? url : null, duration: l.duration || null };
+  })) %>;
 
-  function formatDuration(seconds){
-    if(!seconds || isNaN(seconds)) return null;
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    if(h > 0) return h + 'h ' + m + 'm';
-    if(m > 0) return m + ' min ' + (s > 0 ? s + ' sec' : '');
-    return s + ' sec';
+  function formatDur(sec){
+    if(!sec || isNaN(sec) || !isFinite(sec)) return null;
+    const h = Math.floor(sec/3600);
+    const m = Math.floor((sec%3600)/60);
+    const s = Math.floor(sec%60);
+    if(h>0) return h+'h '+m+'m';
+    if(m>0) return m+' min'+(s>0?' '+s+' sec':'');
+    return s+' sec';
   }
 
-  function applyDuration(){
-    const dur = video.duration;
-    if(dur && !isNaN(dur) && isFinite(dur)){
-      const formatted = formatDuration(dur);
-      if(formatted) durationText.textContent = formatted;
+  lessons.forEach(function(l){
+    const el = document.getElementById('dur-'+l.index);
+    if(!el) return;
+    if(!l.videoUrl) return; // no hosted video — keep manual duration
+
+    const v = document.createElement('video');
+    v.preload = 'metadata';
+    v.style.display = 'none';
+    v.crossOrigin = 'anonymous';
+    document.body.appendChild(v);
+
+    function update(){
+      const d = formatDur(v.duration);
+      if(d){
+        // replace only the time part, keep "• 📹 Video" suffix
+        el.textContent = d + (el.textContent.includes('Video') ? ' • 📹 Video' : '');
+      }
+      document.body.removeChild(v);
     }
-  }
 
-  if(video.readyState >= 1 && video.duration){
-    applyDuration();
-  } else {
-    video.addEventListener('loadedmetadata', applyDuration);
-    video.addEventListener('durationchange', applyDuration);
+    v.addEventListener('loadedmetadata', update);
+    v.addEventListener('error', function(){ document.body.removeChild(v); });
+    v.src = l.videoUrl;
+  });
+
+  // also update current lesson badge if it's a hosted video
+  const curVideo = document.getElementById('lessonVideo');
+  const curBadge = document.getElementById('videoDurationText');
+  if(curVideo && curBadge){
+    function applyBadge(){
+      const d = formatDur(curVideo.duration);
+      if(d) curBadge.textContent = d;
+    }
+    if(curVideo.readyState >= 1 && curVideo.duration) applyBadge();
+    else { curVideo.addEventListener('loadedmetadata', applyBadge); curVideo.addEventListener('durationchange', applyBadge); }
   }
 })();
 </script>
