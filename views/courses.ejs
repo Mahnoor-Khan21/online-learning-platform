@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="en"><head>
     <script>(function(){try{var t=localStorage.getItem('learnhub-theme');if(!t&&window.matchMedia)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Courses — LearnHub</title><link rel="stylesheet" href="/style.css"></head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Courses — LearnHub</title><link rel="stylesheet" href="/style.css?v=3"></head>
 <body class="app-body"><%- include('_navbar',{active:'courses',name,role}) %><main class="page-content">
 <div class="page-header"><div><h1 class="page-title">Explore Courses</h1><p class="page-subtitle">Find the right course by name, instructor, topic, level, rating, or popularity.</p></div><div class="button-row"><% if(role==='student'){ %><a href="/my-courses" class="btn btn-ghost">📚 My Courses</a><% } %><% if(role==='teacher'||role==='admin'){ %><a href="/courses/add" class="btn btn-blue">➕ Add Course</a><% } %></div></div>
 
